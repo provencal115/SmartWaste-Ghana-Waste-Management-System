@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+config/mail.local.php
+config/app.local.php
+*.log
+.DS_Store
+Thumbs.db
