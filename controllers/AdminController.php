@@ -317,4 +317,88 @@ class AdminController extends Controller
         }
         setFlash('success', $count . ' message(s) deleted successfully.');
     }
+
+    public function chatbot(): void
+    {
+        $this->requireRole(['administrator']);
+        $knowledge = ChatbotModel::allKnowledge();
+        $stats = ChatbotModel::stats();
+        $faqs = ChatbotModel::topFaqs(15);
+        $recent = ChatbotModel::recentMessages(15);
+        $categories = ['registration', 'login', 'schedule', 'payment', 'bins', 'notifications', 'complaints', 'finance', 'contact', 'greeting', 'fallback'];
+        $editId = (int)($_GET['edit'] ?? 0);
+        $editItem = $editId ? ChatbotModel::find($editId) : null;
+        $this->view('admin/chatbot', compact('knowledge', 'stats', 'faqs', 'recent', 'categories', 'editItem', 'editId'));
+    }
+
+    public function chatbotPost(): void
+    {
+        $this->requireRole(['administrator']);
+        $this->validateCsrf();
+        $action = $_POST['action'] ?? '';
+
+        try {
+            match ($action) {
+                'create', 'update' => $this->handleChatbotSave($action),
+                'delete' => $this->handleChatbotDelete(),
+                'toggle' => $this->handleChatbotToggle(),
+                default => throw new InvalidArgumentException('Invalid action'),
+            };
+        } catch (Throwable $e) {
+            setFlash('error', $e->getMessage());
+        }
+
+        redirect('admin/chatbot');
+    }
+
+    private function handleChatbotSave(string $action): void
+    {
+        $data = [
+            'category' => trim($_POST['category'] ?? ''),
+            'title' => trim($_POST['title'] ?? ''),
+            'keywords' => trim($_POST['keywords'] ?? ''),
+            'response' => trim($_POST['response'] ?? ''),
+            'is_enabled' => isset($_POST['is_enabled']) ? 1 : 0,
+            'is_suggestion' => isset($_POST['is_suggestion']) ? 1 : 0,
+            'priority' => (int)($_POST['priority'] ?? 0),
+        ];
+
+        if ($data['title'] === '' || $data['keywords'] === '' || $data['response'] === '') {
+            throw new InvalidArgumentException('Title, keywords, and response are required.');
+        }
+
+        if ($action === 'update') {
+            $id = (int)($_POST['id'] ?? 0);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid response ID.');
+            }
+            ChatbotModel::update($id, $data);
+            setFlash('success', 'Chatbot response updated successfully.');
+            return;
+        }
+
+        ChatbotModel::create($data);
+        setFlash('success', 'Chatbot response added successfully.');
+    }
+
+    private function handleChatbotDelete(): void
+    {
+        $id = (int)($_POST['id'] ?? 0);
+        if (!$id) {
+            throw new InvalidArgumentException('Invalid response ID.');
+        }
+        ChatbotModel::delete($id);
+        setFlash('success', 'Chatbot response deleted.');
+    }
+
+    private function handleChatbotToggle(): void
+    {
+        $id = (int)($_POST['id'] ?? 0);
+        $enabled = (int)($_POST['enabled'] ?? 0) === 1;
+        if (!$id) {
+            throw new InvalidArgumentException('Invalid response ID.');
+        }
+        ChatbotModel::toggle($id, $enabled);
+        setFlash('success', 'Response ' . ($enabled ? 'enabled' : 'disabled') . '.');
+    }
 }

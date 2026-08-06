@@ -100,6 +100,8 @@ $router->get('admin/messages/view', 'AdminController@messageView');
 $router->post('admin/messages', 'AdminController@messagesPost');
 $router->get('admin/sms', 'AdminController@sms');
 $router->post('admin/sms', 'AdminController@smsPost');
+$router->get('admin/chatbot', 'AdminController@chatbot');
+$router->post('admin/chatbot', 'AdminController@chatbotPost');
 $router->get('admin/settings', 'AdminController@settings');
 $router->post('admin/settings', 'AdminController@settingsPost');
 $router->post('admin/routes', 'AdminController@routesPost');
@@ -116,5 +118,7 @@ $router->get('finance/reports', 'FinanceController@reports');
 $router->get('api/pricing', 'ApiController@pricing');
 $router->get('api/export', 'ApiController@export');
 $router->get('api/receipt', 'ApiController@receipt');
+$router->get('api/chatbot/init', 'ChatbotController@init');
+$router->post('api/chatbot/send', 'ChatbotController@send');
 
 $router->dispatch();

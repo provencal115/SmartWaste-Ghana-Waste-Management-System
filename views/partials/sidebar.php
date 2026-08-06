@@ -26,6 +26,7 @@ $nav = [
         ['icon' => 'fa-truck', 'label' => 'Trucks', 'route' => 'admin/trucks'],
         ['icon' => 'fa-comments', 'label' => 'Complaints', 'route' => 'admin/complaints'],
         ['icon' => 'fa-envelope', 'label' => 'Contact Messages', 'route' => 'admin/messages', 'badge' => 'contact_unread'],
+        ['icon' => 'fa-robot', 'label' => 'AI Assistant', 'route' => 'admin/chatbot'],
         ['icon' => 'fa-comment-sms', 'label' => 'SMS History', 'route' => 'admin/sms'],
         ['icon' => 'fa-file-export', 'label' => 'Reports', 'route' => 'admin/reports'],
         ['icon' => 'fa-sliders', 'label' => 'Settings', 'route' => 'admin/settings'],

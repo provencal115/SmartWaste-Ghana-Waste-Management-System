@@ -43,5 +43,6 @@ Swal.fire({
 });
 </script>
 <?php endif; ?>
+<?php require __DIR__ . '/../partials/chatbot.php'; ?>
 </body>
 </html>

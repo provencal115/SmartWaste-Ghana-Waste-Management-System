@@ -360,6 +360,49 @@ CREATE TABLE contact_message_replies (
     INDEX idx_reply_message (message_id)
 );
 
+-- AI Virtual Assistant (offline chatbot)
+CREATE TABLE chatbot_knowledge (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    category VARCHAR(50) NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    keywords TEXT NOT NULL,
+    response TEXT NOT NULL,
+    is_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    is_suggestion TINYINT(1) NOT NULL DEFAULT 0,
+    priority INT NOT NULL DEFAULT 0,
+    use_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_category (category),
+    INDEX idx_enabled (is_enabled)
+);
+
+CREATE TABLE chatbot_messages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    session_id VARCHAR(64) NOT NULL,
+    user_id INT NULL,
+    user_message TEXT NOT NULL,
+    bot_response TEXT NOT NULL,
+    knowledge_id INT NULL,
+    matched_category VARCHAR(50) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_session (session_id),
+    INDEX idx_user (user_id),
+    INDEX idx_created (created_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (knowledge_id) REFERENCES chatbot_knowledge(id) ON DELETE SET NULL
+);
+
+CREATE TABLE chatbot_faq (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_question VARCHAR(500) NOT NULL,
+    knowledge_id INT NULL,
+    hit_count INT NOT NULL DEFAULT 1,
+    last_asked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_hits (hit_count DESC),
+    FOREIGN KEY (knowledge_id) REFERENCES chatbot_knowledge(id) ON DELETE SET NULL
+);
+
 CREATE TABLE sms_messages (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NULL,
