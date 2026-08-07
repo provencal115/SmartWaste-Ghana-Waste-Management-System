@@ -62,4 +62,97 @@ class ApiController extends Controller
         echo '</body></html>';
         exit;
     }
+
+    public function analyticsExport(): void
+    {
+        $user = Auth::requireLogin();
+        $role = $user['role_name'] ?? '';
+        if (!in_array($role, ['administrator', 'finance_manager'], true)) {
+            http_response_code(403);
+            echo 'Access denied';
+            exit;
+        }
+
+        $filters = AnalyticsModel::parseFilters($_GET);
+        $report = AnalyticsModel::fullReport($filters);
+        $format = strtolower($_GET['format'] ?? 'csv');
+        $filename = 'smartwaste-analytics-' . date('Y-m-d');
+
+        if ($format === 'csv' || $format === 'xlsx') {
+            $rows = AnalyticsModel::exportRows($report);
+            $mime = $format === 'xlsx'
+                ? 'application/vnd.ms-excel'
+                : 'text/csv';
+            $ext = $format === 'xlsx' ? 'xls' : 'csv';
+            header('Content-Type: ' . $mime);
+            header('Content-Disposition: attachment; filename="' . $filename . '.' . $ext . '"');
+            if ($rows) {
+                echo implode(',', array_keys($rows[0])) . "\n";
+                foreach ($rows as $row) {
+                    echo implode(',', array_map(
+                        fn ($v) => '"' . str_replace('"', '""', (string)$v) . '"',
+                        $row
+                    )) . "\n";
+                }
+            }
+            exit;
+        }
+
+        if ($format === 'pdf') {
+            $op = $report['operational'];
+            $perf = $report['performance'];
+            $rev = $report['revenue'];
+            $sat = $report['satisfaction'];
+
+            $html = '<html><head><meta charset="utf-8"><style>
+                body{font-family:DejaVu Sans,sans-serif;font-size:11px;color:#111;padding:24px}
+                h1{font-size:18px;color:#16a34a}h2{font-size:13px;margin-top:18px;border-bottom:1px solid #ddd}
+                table{width:100%;border-collapse:collapse;margin-top:8px}td,th{border:1px solid #ddd;padding:6px;text-align:left}
+                th{background:#f0fdf4}
+            </style></head><body>';
+            $html .= '<h1>SmartWaste Operational Intelligence Report</h1>';
+            $html .= '<p>Generated: ' . date('Y-m-d H:i') . '</p>';
+            $html .= '<h2>Operational KPIs</h2><table>';
+            foreach ([
+                'Registered Residents' => $op['registered_residents'],
+                'Active Customers' => $op['active_customers'],
+                'Total Collections' => $op['total_collections'],
+                'Completed Collections' => $op['completed_collections'],
+                'Completion Rate' => $perf['completion_rate'] . '%',
+                'On-Time Rate' => $perf['on_time_rate'] . '%',
+                'Total Revenue' => formatCurrency($rev['total']),
+                'Average Rating' => $sat['average'] . ' / 5',
+            ] as $label => $val) {
+                $html .= '<tr><th>' . htmlspecialchars($label) . '</th><td>' . htmlspecialchars((string)$val) . '</td></tr>';
+            }
+            $html .= '</table>';
+
+            $html .= '<h2>Zone Performance</h2><table><tr><th>Zone</th><th>Completed</th><th>Rate</th></tr>';
+            foreach ($report['zones'] as $z) {
+                $html .= '<tr><td>' . htmlspecialchars($z['name']) . '</td><td>' . $z['completed'] . '</td><td>' . $z['completion_rate'] . '%</td></tr>';
+            }
+            $html .= '</table>';
+
+            $html .= '<h2>Vehicle Performance</h2><table><tr><th>Vehicle</th><th>Completed</th><th>Missed</th><th>Status</th></tr>';
+            foreach ($report['vehicles'] as $v) {
+                $html .= '<tr><td>' . htmlspecialchars($v['plate_number']) . '</td><td>' . ($v['completed'] ?? 0) . '</td><td>' . ($v['missed'] ?? 0) . '</td><td>' . htmlspecialchars($v['maintenance_status']) . '</td></tr>';
+            }
+            $html .= '</table></body></html>';
+
+            if (class_exists(\Dompdf\Dompdf::class)) {
+                $dompdf = new \Dompdf\Dompdf();
+                $dompdf->loadHtml($html);
+                $dompdf->setPaper('A4', 'portrait');
+                $dompdf->render();
+                $dompdf->stream($filename . '.pdf', ['Attachment' => true]);
+                exit;
+            }
+
+            header('Content-Type: text/html');
+            echo $html;
+            exit;
+        }
+
+        redirect('admin/analytics');
+    }
 }

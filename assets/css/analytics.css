@@ -1,0 +1,101 @@
+/* Analytics & BI dashboard */
+
+.performance-metric {
+    text-align: center;
+    padding: 1.25rem 1rem;
+    border-radius: 14px;
+    background: var(--surface-muted, #f8fafc);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+    height: 100%;
+}
+
+[data-theme="dark"] .performance-metric {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.performance-metric-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-primary, #0f172a);
+}
+
+[data-theme="dark"] .performance-metric-value {
+    color: #f1f5f9;
+}
+
+.performance-metric-value span {
+    font-size: 1rem;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.performance-metric-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #64748b);
+    margin-top: 0.35rem;
+    font-weight: 600;
+}
+
+.performance-metric-success .performance-metric-value { color: var(--color-success); }
+.performance-metric-warning .performance-metric-value { color: var(--color-warning); }
+.performance-metric-danger .performance-metric-value { color: var(--color-danger); }
+.performance-metric-info .performance-metric-value { color: var(--color-info); }
+
+.analytics-filter-card .form-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.zone-performance-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+}
+
+.zone-performance-row:last-child {
+    border-bottom: none;
+}
+
+.zone-performance-bar {
+    flex: 1;
+    min-width: 80px;
+}
+
+.rating-stars {
+    color: #f59e0b;
+    letter-spacing: 2px;
+}
+
+.satisfaction-score {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.operational-intelligence-header {
+    border-left: 4px solid var(--color-primary);
+}
+    padding-left: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.operational-intelligence-header h5 {
+    margin: 0;
+    font-weight: 700;
+}
+
+.operational-intelligence-header p {
+    margin: 0.25rem 0 0;
+    color: var(--text-secondary, #64748b);
+    font-size: 0.875rem;
+}
+
+.analytics-table-compact td,
+.analytics-table-compact th {
+    font-size: 0.85rem;
+    vertical-align: middle;
+}

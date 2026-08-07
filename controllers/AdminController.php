@@ -9,7 +9,26 @@ class AdminController extends Controller
         $stats = AdminModel::dashboardStats();
         $collections = CollectionModel::stats();
         $contactStats = ContactMessageModel::stats();
-        $this->view('admin/dashboard', compact('stats', 'collections', 'contactStats'));
+        $routeStats = OptimizedRouteModel::analytics();
+        $analytics = AnalyticsModel::fullReport(AnalyticsModel::parseFilters([]));
+        $inventoryAlerts = [];
+        try {
+            $inventoryAlerts = InventoryForecastModel::lowStockAlerts();
+        } catch (Throwable $e) {
+            $inventoryAlerts = [];
+        }
+        $this->view('admin/dashboard', compact('stats', 'collections', 'contactStats', 'routeStats', 'analytics', 'inventoryAlerts'));
+    }
+
+    public function analytics(): void
+    {
+        $this->requireRole(['administrator']);
+        $filters = AnalyticsModel::parseFilters($_GET);
+        $report = AnalyticsModel::fullReport($filters);
+        $zones = ZoneModel::all();
+        $collectors = CollectorModel::allWithUsers();
+        $trucks = TruckModel::all();
+        $this->view('admin/analytics', compact('report', 'filters', 'zones', 'collectors', 'trucks'));
     }
 
     public function users(): void
@@ -130,6 +149,82 @@ class AdminController extends Controller
         redirect('admin/routes');
     }
 
+    public function routeOptimisation(): void
+    {
+        $this->requireRole(['administrator']);
+        $zones = ZoneModel::allWithStats();
+        $collectors = CollectorModel::allWithUsers();
+        $trucks = TruckModel::all();
+        $routeHistory = OptimizedRouteModel::history(15);
+        $routeStats = OptimizedRouteModel::analytics();
+
+        $selectedDate = trim($_GET['date'] ?? date('Y-m-d'));
+        $selectedZone = (int)($_GET['zone_id'] ?? 0);
+        $selectedCollector = (int)($_GET['collector_id'] ?? 0);
+        $selectedTruck = (int)($_GET['truck_id'] ?? 0);
+        $optimizedRoute = null;
+
+        if ($selectedZone && $selectedCollector && $selectedDate) {
+            $optimizedRoute = OptimizedRouteModel::findCurrent($selectedZone, $selectedCollector, $selectedDate);
+            if ($optimizedRoute) {
+                $optimizedRoute['route_data_decoded'] = OptimizedRouteModel::decodeRouteData($optimizedRoute['route_data'] ?? null);
+            }
+        }
+
+        $previewCount = 0;
+        if ($selectedZone && $selectedDate) {
+            try {
+                $previewCount = count(CollectionModel::scheduledForOptimisation(
+                    $selectedDate,
+                    $selectedZone,
+                    $selectedCollector ?: null
+                ));
+            } catch (Throwable) {
+                $previewCount = 0;
+            }
+        }
+
+        $this->view('admin/route-optimisation', compact(
+            'zones', 'collectors', 'trucks', 'routeHistory', 'routeStats',
+            'selectedDate', 'selectedZone', 'selectedCollector', 'selectedTruck',
+            'optimizedRoute', 'previewCount'
+        ));
+    }
+
+    public function routeOptimisationPost(): void
+    {
+        $user = $this->requireRole(['administrator']);
+        $this->validateCsrf();
+        $action = $_POST['action'] ?? 'optimise';
+
+        $date = trim($_POST['collection_date'] ?? date('Y-m-d'));
+        $zoneId = (int)($_POST['zone_id'] ?? 0);
+        $collectorId = (int)($_POST['collector_id'] ?? 0);
+        $truckId = !empty($_POST['truck_id']) ? (int)$_POST['truck_id'] : null;
+        $notes = trim($_POST['notes'] ?? '') ?: null;
+
+        $redirectParams = [
+            'date' => $date,
+            'zone_id' => $zoneId,
+            'collector_id' => $collectorId,
+            'truck_id' => $truckId ?? 0,
+        ];
+
+        try {
+            if (!$zoneId || !$collectorId || !$date) {
+                throw new InvalidArgumentException('Please select collection date, zone, and collector.');
+            }
+
+            $reoptimise = $action === 'reoptimise';
+            OptimizedRouteModel::optimise($date, $zoneId, $collectorId, $truckId, (int)$user['id'], $reoptimise, $notes);
+            setFlash('success', $reoptimise ? 'Route re-optimised successfully.' : 'Route optimised successfully.');
+        } catch (Throwable $e) {
+            setFlash('error', $e->getMessage());
+        }
+
+        redirect('admin/route-optimisation', $redirectParams);
+    }
+
     public function trucks(): void
     {
         $this->requireRole(['administrator']);
@@ -199,10 +294,27 @@ class AdminController extends Controller
                 'payment_days_before' => (int)($_POST['reminder_payment_days'] ?? 3),
                 'pickup_hours_before' => (int)($_POST['reminder_pickup_hours'] ?? 24),
             ],
+            'ai_assistant' => [
+                'enabled'         => !empty($_POST['ai_assistant_enabled']),
+                'assistant_name'  => trim($_POST['ai_assistant_name'] ?? '') ?: 'SmartWaste Assistant',
+                'welcome_message' => trim($_POST['ai_assistant_welcome'] ?? ''),
+                'company_info'    => trim($_POST['ai_assistant_company_info'] ?? ''),
+            ],
+            'inventory_forecast' => [
+                'enabled'            => !empty($_POST['inventory_forecast_enabled']),
+                'lookback_days'      => (int)($_POST['inventory_lookback_days'] ?? 90),
+                'safety_stock_days'  => (int)($_POST['inventory_safety_days'] ?? 30),
+                'reorder_multiplier' => (float)($_POST['inventory_reorder_multiplier'] ?? 1.5),
+                'minimum_by_size'    => [
+                    'small'  => (int)($_POST['inventory_min_small'] ?? 20),
+                    'medium' => (int)($_POST['inventory_min_medium'] ?? 20),
+                    'large'  => (int)($_POST['inventory_min_large'] ?? 20),
+                ],
+            ],
         ];
 
         foreach ($map as $key => $value) {
-            SettingModel::update($key, $value, (int)$user['id']);
+            SettingModel::upsert($key, $value, (int)$user['id']);
         }
 
         logActivity((int)$user['id'], 'update_settings', 'admin');

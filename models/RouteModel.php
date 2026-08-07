@@ -60,11 +60,19 @@ class RouteModel extends Model
         self::query('DELETE FROM collection_routes WHERE id = ?', [$id]);
     }
 
-    public static function forCollector(int $collectorId): array
+    public static function forCollector(int $collectorId, ?int $zoneId = null): array
     {
         return self::fetchAll(
             'SELECT * FROM collection_routes WHERE collector_id = ? AND is_active = 1',
             [$collectorId]
+        );
+    }
+
+    public static function saveOptimization(int $routeId, array $result): void
+    {
+        self::query(
+            'UPDATE collection_routes SET route_data = ?, is_optimized = 1 WHERE id = ?',
+            [json_encode($result, JSON_UNESCAPED_UNICODE), $routeId]
         );
     }
 }

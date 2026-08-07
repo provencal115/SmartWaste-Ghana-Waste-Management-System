@@ -6,7 +6,22 @@
 
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 date_default_timezone_set('Africa/Accra');
+
+set_exception_handler(static function (Throwable $e): void {
+    error_log('SmartWaste uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    if (!headers_sent()) {
+        http_response_code(500);
+    }
+    $errorFile = __DIR__ . '/views/errors/500.php';
+    if (is_file($errorFile)) {
+        require $errorFile;
+    } else {
+        echo 'Something went wrong. Please try again.';
+    }
+    exit(1);
+});
 
 // Autoload core
 require_once __DIR__ . '/includes/AppConfig.php';
@@ -20,6 +35,10 @@ require_once __DIR__ . '/includes/stats.php';
 require_once __DIR__ . '/includes/images.php';
 require_once __DIR__ . '/includes/ui.php';
 require_once __DIR__ . '/includes/pages.php';
+require_once __DIR__ . '/includes/RouteOptimizer.php';
+require_once __DIR__ . '/includes/ChatbotAiProvider.php';
+require_once __DIR__ . '/includes/ChatbotAccountService.php';
+require_once __DIR__ . '/includes/ChatbotEngine.php';
 
 ensureBrandImageAssets();
 
@@ -83,13 +102,19 @@ $router->post('collector/reports', 'CollectorController@reportsPost');
 $router->get('inventory/dashboard', 'InventoryController@dashboard');
 $router->get('inventory/bins', 'InventoryController@bins');
 $router->post('inventory/bins', 'InventoryController@binsPost');
+$router->get('inventory/procurement', 'InventoryController@procurement');
+$router->post('inventory/procurement', 'InventoryController@procurementPost');
+$router->post('inventory/procurement/status', 'InventoryController@procurementStatusPost');
 $router->get('inventory/reports', 'InventoryController@reports');
 
 // Admin
 $router->get('admin/dashboard', 'AdminController@dashboard');
+$router->get('admin/analytics', 'AdminController@analytics');
 $router->get('admin/users', 'AdminController@users');
 $router->post('admin/users', 'AdminController@usersPost');
 $router->get('admin/routes', 'AdminController@routes');
+$router->get('admin/route-optimisation', 'AdminController@routeOptimisation');
+$router->post('admin/route-optimisation', 'AdminController@routeOptimisationPost');
 $router->get('admin/trucks', 'AdminController@trucks');
 $router->get('admin/complaints', 'AdminController@complaints');
 $router->post('admin/complaints', 'AdminController@complaintsPost');
@@ -118,6 +143,7 @@ $router->get('finance/reports', 'FinanceController@reports');
 $router->get('api/pricing', 'ApiController@pricing');
 $router->get('api/export', 'ApiController@export');
 $router->get('api/receipt', 'ApiController@receipt');
+$router->get('api/analytics/export', 'ApiController@analyticsExport');
 $router->get('api/chatbot/init', 'ChatbotController@init');
 $router->post('api/chatbot/send', 'ChatbotController@send');
 

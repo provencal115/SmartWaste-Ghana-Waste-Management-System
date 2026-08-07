@@ -198,11 +198,50 @@ CREATE TABLE collection_routes (
     FOREIGN KEY (truck_id) REFERENCES trucks(id)
 );
 
+-- Optimised collection routes (date-specific runs)
+CREATE TABLE optimized_routes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    collection_route_id INT NULL,
+    zone_id INT NOT NULL,
+    collector_id INT NOT NULL,
+    truck_id INT NULL,
+    collection_date DATE NOT NULL,
+    route_name VARCHAR(150) NOT NULL,
+    route_data JSON NOT NULL,
+    estimated_distance_km DECIMAL(10,2) NOT NULL DEFAULT 0,
+    estimated_duration_min INT NOT NULL DEFAULT 0,
+    start_lat DECIMAL(10,8) NULL,
+    start_lng DECIMAL(11,8) NULL,
+    end_lat DECIMAL(10,8) NULL,
+    end_lng DECIMAL(11,8) NULL,
+    total_stops INT NOT NULL DEFAULT 0,
+    completed_stops INT NOT NULL DEFAULT 0,
+    status ENUM('optimised', 'active', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'optimised',
+    algorithm VARCHAR(50) NOT NULL DEFAULT 'nearest_neighbor',
+    optimized_at DATETIME NOT NULL,
+    completed_at DATETIME NULL,
+    created_by INT NULL,
+    version INT NOT NULL DEFAULT 1,
+    is_current TINYINT(1) NOT NULL DEFAULT 1,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_date_zone (collection_date, zone_id),
+    INDEX idx_collector_date (collector_id, collection_date),
+    FOREIGN KEY (zone_id) REFERENCES collection_zones(id),
+    FOREIGN KEY (collector_id) REFERENCES collectors(id),
+    FOREIGN KEY (truck_id) REFERENCES trucks(id) ON DELETE SET NULL,
+    FOREIGN KEY (collection_route_id) REFERENCES collection_routes(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Collection Schedules
 CREATE TABLE collection_schedules (
     id INT PRIMARY KEY AUTO_INCREMENT,
     resident_id INT NOT NULL,
     route_id INT,
+    optimized_route_id INT NULL,
+    stop_order INT NULL,
     collector_id INT,
     schedule_type ENUM('one_time', 'recurring') DEFAULT 'one_time',
     preferred_date DATE NOT NULL,
@@ -219,6 +258,7 @@ CREATE TABLE collection_schedules (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (resident_id) REFERENCES residents(id),
     FOREIGN KEY (route_id) REFERENCES collection_routes(id),
+    FOREIGN KEY (optimized_route_id) REFERENCES optimized_routes(id) ON DELETE SET NULL,
     FOREIGN KEY (collector_id) REFERENCES collectors(id)
 );
 
@@ -453,7 +493,9 @@ INSERT INTO smart_settings (setting_key, setting_value, description) VALUES
 ('bin_fullness_prediction', '{"enabled": true, "threshold_percent": 80}', 'Smart bin fullness estimation'),
 ('demand_prediction', '{"enabled": true, "lookback_days": 30}', 'Collection demand prediction'),
 ('auto_reschedule', '{"enabled": true, "delay_minutes": 60}', 'Auto rescheduling after breakdown'),
-('reminder_system', '{"payment_days_before": 3, "pickup_hours_before": 24}', 'Automated reminder settings');
+('reminder_system', '{"payment_days_before": 3, "pickup_hours_before": 24}', 'Automated reminder settings'),
+('ai_assistant', '{"enabled": true, "assistant_name": "SmartWaste Assistant", "welcome_message": "", "company_info": ""}', 'Customer-facing AI chatbot assistant'),
+('inventory_forecast', '{"enabled": true, "lookback_days": 90, "safety_stock_days": 30, "reorder_multiplier": 1.5, "minimum_by_size": {"small": 20, "medium": 20, "large": 20}}', 'Smart inventory forecasting settings');
 
 -- Seed default zones
 INSERT INTO collection_zones (name, description, region) VALUES

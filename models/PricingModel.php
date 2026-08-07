@@ -94,11 +94,35 @@ class SettingModel extends Model
         return self::fetchAll('SELECT * FROM smart_settings ORDER BY setting_key');
     }
 
+    public static function get(string $key): ?array
+    {
+        $row = self::fetchOne('SELECT setting_value FROM smart_settings WHERE setting_key = ?', [$key]);
+        if (!$row || empty($row['setting_value'])) {
+            return null;
+        }
+        $decoded = json_decode((string)$row['setting_value'], true);
+        return is_array($decoded) ? $decoded : null;
+    }
+
     public static function update(string $key, array $value, ?int $userId = null): void
     {
         self::query(
             'UPDATE smart_settings SET setting_value = ?, updated_by = ?, updated_at = NOW() WHERE setting_key = ?',
             [json_encode($value), $userId, $key]
+        );
+    }
+
+    public static function upsert(string $key, array $value, ?int $userId = null, ?string $description = null): void
+    {
+        $exists = self::fetchOne('SELECT id FROM smart_settings WHERE setting_key = ?', [$key]);
+        if ($exists) {
+            self::update($key, $value, $userId);
+            return;
+        }
+
+        self::query(
+            'INSERT INTO smart_settings (setting_key, setting_value, description, updated_by) VALUES (?, ?, ?, ?)',
+            [$key, json_encode($value), $description, $userId]
         );
     }
 }

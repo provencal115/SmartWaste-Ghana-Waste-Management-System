@@ -1274,6 +1274,24 @@ th.sortable.desc .sort-icon {
   color: #34d399;
 }
 
+.footer-brand-logo {
+  flex-shrink: 0;
+}
+
+.footer-text-muted {
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+.footer-text-subtle {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+.footer-icon-accent {
+  color: #34d399;
+}
+
 .social-link {
   width: 40px;
   height: 40px;
@@ -1553,9 +1571,23 @@ th.sortable.desc .sort-icon {
 
 .auth-visual-logo,
 .brand-logo-img,
-.sidebar-brand-logo {
+.sidebar-brand-logo,
+.footer-brand-logo,
+.auth-logo img,
+.sw-chat-header-logo {
   border-radius: 12px;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--bg-surface);
+  padding: 2px;
+  box-shadow: var(--shadow-xs);
+}
+
+[data-theme="dark"] .auth-visual-logo,
+[data-theme="dark"] .brand-logo-img,
+[data-theme="dark"] .sidebar-brand-logo,
+[data-theme="dark"] .footer-brand-logo,
+[data-theme="dark"] .auth-logo img {
+  background: var(--bg-surface-raised);
 }
 
 .auth-form-panel {
@@ -1569,7 +1601,7 @@ th.sortable.desc .sort-icon {
   width: 56px;
   height: 56px;
   border-radius: 16px;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .dashboard-hero-banner {
@@ -1632,15 +1664,12 @@ th.sortable.desc .sort-icon {
   }
 }
 
-/* ── Sidebar scroll lock ─────────────────────────────────────────────────── */
+/* Mobile nav / sidebar — overlay only; page scroll stays available */
 html.sidebar-open,
-body.sidebar-open {
-  overflow: hidden;
-}
-
+body.sidebar-open,
 html.nav-open,
 body.nav-open {
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* ── Admin settings panel ────────────────────────────────────────────────── */

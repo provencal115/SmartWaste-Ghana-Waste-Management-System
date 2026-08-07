@@ -24,6 +24,7 @@
                     <button type="button" class="btn btn-saas-outline active" data-revenue-period="7">7 Days</button>
                     <button type="button" class="btn btn-saas-outline" data-revenue-period="30">30 Days</button>
                     <button type="button" class="btn btn-saas-outline" data-revenue-period="180">6 Months</button>
+                    <button type="button" class="btn btn-saas-outline" data-revenue-period="365">1 Year</button>
                 </div>
             </div>
             <div class="saas-card-body"><canvas id="revenueTrendChart" height="100"></canvas></div>
@@ -41,6 +42,7 @@
 $chart7 = $stats['trend_7d'] ?? [];
 $chart30 = $stats['trend_30d'] ?? [];
 $chart6mo = $stats['trend_6mo'] ?? [];
+$chart1y = $stats['monthly_trend'] ?? PaymentModel::revenueTrendMonthly(12);
 ?>
 <script>document.addEventListener('DOMContentLoaded',()=>{
     initRevenueTrendChart('revenueTrendChart', {
@@ -55,6 +57,10 @@ $chart6mo = $stats['trend_6mo'] ?? [];
         '180': {
             labels: <?= json_encode(array_column($chart6mo, 'label')) ?>,
             data: <?= json_encode(array_map(fn ($r) => (float) $r['revenue'], $chart6mo)) ?>
+        },
+        '365': {
+            labels: <?= json_encode(array_column($chart1y, 'label')) ?>,
+            data: <?= json_encode(array_map(fn ($r) => (float) $r['revenue'], $chart1y)) ?>
         }
     }, '30');
     initBarChart('methodChart', <?= json_encode(array_map(fn ($m) => ucwords(str_replace('_', ' ', $m['payment_method'])), $stats['by_method'] ?? [])) ?>, <?= json_encode(array_map(fn ($m) => (float) $m['total'], $stats['by_method'] ?? [])) ?>);

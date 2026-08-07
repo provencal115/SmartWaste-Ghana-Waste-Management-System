@@ -1,5 +1,5 @@
 /**
- * SmartWaste AI Virtual Assistant — offline keyword chatbot widget
+ * SmartWaste AI Customer Assistant — floating chat widget
  */
 (function () {
     'use strict';
@@ -10,6 +10,7 @@
     const STORAGE_KEY = 'sw_chat_session';
     const SOUND_KEY = 'sw_chat_sound';
     const baseUrl = window.BASE_URL || '';
+    const contactUrl = root.dataset.contact || (baseUrl + 'contact');
 
     let sessionId = sessionStorage.getItem(STORAGE_KEY);
     if (!sessionId) {
@@ -18,6 +19,7 @@
     }
 
     let csrfToken = root.dataset.csrf || '';
+    let assistantName = root.dataset.assistant || 'SmartWaste Assistant';
     let soundEnabled = localStorage.getItem(SOUND_KEY) === '1';
     let initialized = false;
     let sending = false;
@@ -28,10 +30,13 @@
         messages: root.querySelector('.sw-chat-messages'),
         typing: root.querySelector('.sw-chat-typing'),
         suggestions: root.querySelector('.sw-chat-suggestions'),
+        escalation: root.querySelector('.sw-chat-escalation'),
         input: root.querySelector('.sw-chat-input'),
         send: root.querySelector('.sw-chat-send'),
         close: root.querySelector('.sw-chat-close'),
         sound: root.querySelector('.sw-chat-sound'),
+        headerTitle: root.querySelector('.sw-chat-header-info h6'),
+        launcherLabel: root.querySelector('.sw-chat-launcher-label'),
     };
 
     function formatTime(dateStr) {
@@ -47,10 +52,9 @@
 
     function linkify(text) {
         const escaped = escapeHtml(text);
-        return escaped.replace(
-            /(https?:\/\/[^\s<]+)/g,
-            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-        );
+        return escaped
+            .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+            .replace(/\n/g, '<br>');
     }
 
     function appendMessage(role, text, time) {
@@ -74,6 +78,12 @@
     function showTyping(show) {
         els.typing.classList.toggle('is-visible', show);
         if (show) scrollToBottom();
+    }
+
+    function showEscalation(show) {
+        if (els.escalation) {
+            els.escalation.hidden = !show;
+        }
     }
 
     function playNotificationSound() {
@@ -109,9 +119,16 @@
         const isOpen = open !== undefined ? open : !els.panel.classList.contains('is-open');
         els.panel.classList.toggle('is-open', isOpen);
         els.launcher.classList.toggle('is-open', isOpen);
-        els.launcher.innerHTML = isOpen
-            ? '<i class="fa-solid fa-chevron-down"></i>'
-            : '<i class="fa-solid fa-robot"></i>';
+
+        if (isOpen) {
+            els.launcher.innerHTML = '<span class="sw-chat-launcher-inner"><i class="fa-solid fa-chevron-down"></i></span>';
+        } else {
+            els.launcher.innerHTML =
+                '<span class="sw-chat-launcher-inner">' +
+                '<i class="fa-solid fa-robot"></i>' +
+                '<span class="sw-chat-launcher-label">' + escapeHtml(assistantName) + '</span>' +
+                '</span>';
+        }
 
         if (isOpen && !initialized) {
             initChat();
@@ -127,12 +144,22 @@
                 baseUrl + 'api/chatbot/init&session_id=' + encodeURIComponent(sessionId)
             );
             const data = await res.json();
-            if (!data.success) return;
+            if (!data.success) {
+                if (data.disabled) {
+                    root.remove();
+                }
+                return;
+            }
 
             if (data.csrf) csrfToken = data.csrf;
+            if (data.assistant_name) {
+                assistantName = data.assistant_name;
+                if (els.headerTitle) els.headerTitle.textContent = assistantName;
+            }
             initialized = true;
 
             els.messages.innerHTML = '';
+            showEscalation(false);
             if (data.history && data.history.length) {
                 data.history.forEach(function (msg) {
                     appendMessage(msg.role, msg.text, msg.time);
@@ -143,7 +170,7 @@
 
             renderSuggestions(data.suggestions);
         } catch (e) {
-            appendMessage('bot', 'Welcome! Ask me about registration, pickups, pricing, or support.', new Date().toISOString());
+            appendMessage('bot', 'Welcome! Ask me about collections, payments, bins, or support.', new Date().toISOString());
         }
     }
 
@@ -154,6 +181,7 @@
         sending = true;
         els.send.disabled = true;
         els.input.value = '';
+        showEscalation(false);
 
         appendMessage('user', message, new Date().toISOString());
         showTyping(true);
@@ -178,6 +206,15 @@
                 await delay(400 + Math.random() * 400);
                 showTyping(false);
                 appendMessage('bot', data.response, data.time || new Date().toISOString());
+                if (data.escalate) {
+                    showEscalation(true);
+                    if (els.escalation) {
+                        const link = els.escalation.querySelector('.sw-chat-support-btn');
+                        if (link && data.contact_url) {
+                            link.href = data.contact_url;
+                        }
+                    }
+                }
                 playNotificationSound();
             } else {
                 showTyping(false);

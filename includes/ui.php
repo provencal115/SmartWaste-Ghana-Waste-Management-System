@@ -221,6 +221,17 @@ function uiProgressBar(string $label, float $percent, ?string $valueLabel = null
     echo '<div class="progress-premium"><div class="progress-premium-bar" data-progress="' . min(100, max(0, $percent)) . '" style="width:0"></div></div></div>';
 }
 
+/** Circular-style performance metric with animated bar. */
+function uiPerformanceMetric(string $label, float $percent, string $variant = 'success'): void
+{
+    $pct = min(100, max(0, $percent));
+    echo '<div class="performance-metric performance-metric-' . e($variant) . ' animate-in">';
+    echo '<div class="performance-metric-value">' . e(number_format($pct, 1)) . '<span>%</span></div>';
+    echo '<div class="performance-metric-label">' . e($label) . '</div>';
+    echo '<div class="progress-premium mt-2"><div class="progress-premium-bar" data-progress="' . $pct . '" style="width:0"></div></div>';
+    echo '</div>';
+}
+
 function uiCalendarWidget(): void
 {
     echo '<div class="calendar-widget" data-calendar>';

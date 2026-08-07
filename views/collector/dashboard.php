@@ -20,6 +20,51 @@ $completionRate = ($stats['today_total'] ?? 0) > 0
     ?>
 </div>
 
+<?php if (!empty($todayRoute)): ?>
+<?php $routeProgress = OptimizedRouteModel::progressPercent($todayRoute); ?>
+<div class="glass-card saas-card animate-in mb-4">
+    <div class="saas-card-header flex-wrap gap-2">
+        <div class="saas-card-title"><i class="fa-solid fa-route me-2 text-success"></i>Today's Route</div>
+        <a href="<?= baseUrl('collector/routes') ?>" class="btn-saas btn-saas-sm btn-saas-outline">View Map</a>
+    </div>
+    <div class="saas-card-body">
+        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+            <div>
+                <strong><?= e($todayRoute['route_name']) ?></strong>
+                <div class="text-secondary small"><?= (int)$todayRoute['completed_stops'] ?> / <?= (int)$todayRoute['total_stops'] ?> completed · <?= number_format((float)$todayRoute['estimated_distance_km'], 1) ?> km</div>
+            </div>
+            <?= statusBadge($todayRoute['status']) ?>
+        </div>
+        <div class="route-progress-bar mb-3">
+            <div class="route-progress-fill" style="width:<?= $routeProgress ?>%"></div>
+        </div>
+        <?php if (!empty($todayStops)): ?>
+        <div class="row g-2">
+            <?php foreach (array_slice($todayStops, 0, 5) as $i => $stop):
+                $binSize = $stop['assigned_bin_size'] ?? $stop['selected_bin_size'] ?? 'medium';
+                $order = $stop['stop_order'] ?? ($i + 1);
+            ?>
+            <div class="col-md-6">
+                <div class="route-stop-card">
+                    <div class="route-stop-number" style="width:30px;height:30px;font-size:0.85rem"><?= (int)$order ?></div>
+                    <div class="flex-grow-1 min-w-0">
+                        <strong class="small"><?= e($stop['first_name'] . ' ' . $stop['last_name']) ?></strong>
+                        <div class="text-secondary" style="font-size:0.75rem"><?= e(binCapacity($binSize)) ?>L · <?= !empty($stop['preferred_time']) ? date('g:i A', strtotime($stop['preferred_time'])) : 'Any time' ?></div>
+                    </div>
+                    <?= statusBadge($stop['pickup_status'] ?? 'pending') ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php if (count($todayStops) > 5): ?>
+        <p class="text-secondary small mb-0 mt-2">+ <?= count($todayStops) - 5 ?> more stops on the full route map.</p>
+        <?php endif; ?>
+        <?php endif; ?>
+    </div>
+</div>
+<link href="<?= asset('css/route-optimization.css') ?>" rel="stylesheet">
+<?php endif; ?>
+
 <div class="glass-card saas-card animate-in mb-4">
     <div class="saas-card-header flex-wrap gap-2">
         <div class="saas-card-title"><i class="fa-solid fa-filter me-2"></i>Pickup Requests</div>

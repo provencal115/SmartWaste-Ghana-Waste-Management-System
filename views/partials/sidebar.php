@@ -17,12 +17,15 @@ $nav = [
     'inventory_manager' => [
         ['icon' => 'fa-gauge-high', 'label' => 'Dashboard', 'route' => 'inventory/dashboard'],
         ['icon' => 'fa-dumpster', 'label' => 'Bins', 'route' => 'inventory/bins'],
+        ['icon' => 'fa-cart-shopping', 'label' => 'Procurement', 'route' => 'inventory/procurement'],
         ['icon' => 'fa-chart-column', 'label' => 'Reports', 'route' => 'inventory/reports'],
     ],
     'administrator' => [
         ['icon' => 'fa-gauge-high', 'label' => 'Dashboard', 'route' => 'admin/dashboard'],
+        ['icon' => 'fa-chart-line', 'label' => 'Analytics', 'route' => 'admin/analytics'],
         ['icon' => 'fa-users', 'label' => 'Users', 'route' => 'admin/users'],
-        ['icon' => 'fa-map-location-dot', 'label' => 'Zones', 'route' => 'admin/routes'],
+        ['icon' => 'fa-map-location-dot', 'label' => 'Zones & Routes', 'route' => 'admin/routes'],
+        ['icon' => 'fa-route', 'label' => 'Route Optimisation', 'route' => 'admin/route-optimisation'],
         ['icon' => 'fa-truck', 'label' => 'Trucks', 'route' => 'admin/trucks'],
         ['icon' => 'fa-comments', 'label' => 'Complaints', 'route' => 'admin/complaints'],
         ['icon' => 'fa-envelope', 'label' => 'Contact Messages', 'route' => 'admin/messages', 'badge' => 'contact_unread'],

@@ -5,6 +5,8 @@
 (function () {
     'use strict';
 
+    let initialized = false;
+
     const REQUIREMENTS = [
         { key: 'length', label: 'At least 8 characters', test: (p) => p.length >= 8 },
         { key: 'upper', label: 'At least one uppercase letter', test: (p) => /[A-Z]/.test(p) },
@@ -109,25 +111,23 @@
         return input.closest('[data-password-group]') || input.closest('.password-field-group');
     }
 
-    function buildStrengthPanel(input) {
-        const group = getPasswordGroup(input) || input.parentElement;
-        if (!group || group.querySelector('.password-strength-panel')) {
-            return;
-        }
-
+    function createStrengthPanelMarkup() {
         const panel = document.createElement('div');
-        panel.className = 'password-strength-panel is-empty';
+        panel.className = 'password-strength-panel is-visible';
         panel.setAttribute('aria-live', 'polite');
+        panel.setAttribute('aria-hidden', 'false');
         panel.innerHTML = `
-            <div class="password-strength-header">
-                <span class="password-strength-text">Password strength: <strong class="password-strength-label">Very Weak</strong></span>
-            </div>
-            <div class="password-strength-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Password strength">
-                <div class="password-strength-fill"></div>
-            </div>
-            <div class="password-requirements-wrap">
-                <p class="password-requirements-title">Password must contain:</p>
-                <ul class="password-requirements"></ul>
+            <div class="password-strength-panel-inner">
+                <div class="password-strength-header">
+                    <span class="password-strength-text">Password strength: <strong class="password-strength-label"></strong></span>
+                </div>
+                <div class="password-strength-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Password strength">
+                    <div class="password-strength-fill"></div>
+                </div>
+                <div class="password-requirements-wrap">
+                    <p class="password-requirements-title">Password must contain:</p>
+                    <ul class="password-requirements"></ul>
+                </div>
             </div>
         `;
 
@@ -140,22 +140,58 @@
             ul.appendChild(li);
         });
 
-        group.appendChild(panel);
+        return panel;
+    }
 
-        const update = () => {
-            const val = input.value;
-            const { level, label, score, met } = evaluateStrength(val);
-            const labelEl = panel.querySelector('.password-strength-label');
-            const fill = panel.querySelector('.password-strength-fill');
-            const bar = panel.querySelector('.password-strength-bar');
+    function buildStrengthPanel(input) {
+        if (input.dataset.strengthPanelBound === '1') {
+            return;
+        }
+        input.dataset.strengthPanelBound = '1';
+
+        const group = getPasswordGroup(input) || input.parentElement;
+        if (!group) {
+            return;
+        }
+
+        let panel = null;
+
+        const removePanel = () => {
+            if (!panel) {
+                return;
+            }
+            panel.remove();
+            panel = null;
+            input.dataset.strengthMet = '0';
+        };
+
+        const ensurePanel = () => {
+            if (panel) {
+                return panel;
+            }
+
+            panel = createStrengthPanelMarkup();
+            panel.classList.add('is-revealing');
+            group.appendChild(panel);
+            panel.addEventListener('animationend', () => {
+                panel?.classList.remove('is-revealing');
+            }, { once: true });
+            return panel;
+        };
+
+        const renderStrength = (val) => {
+            const activePanel = ensurePanel();
+            const { level, label, score } = evaluateStrength(val);
+            const labelEl = activePanel.querySelector('.password-strength-label');
+            const fill = activePanel.querySelector('.password-strength-fill');
+            const bar = activePanel.querySelector('.password-strength-bar');
 
             labelEl.textContent = label;
             fill.style.width = `${score}%`;
             bar.setAttribute('aria-valuenow', String(score));
-            panel.dataset.level = String(level);
-            panel.classList.toggle('is-empty', !val);
+            activePanel.dataset.level = String(level);
 
-            panel.querySelectorAll('.password-requirement').forEach((li) => {
+            activePanel.querySelectorAll('.password-requirement').forEach((li) => {
                 const req = REQUIREMENTS.find((r) => r.key === li.dataset.req);
                 const ok = req && req.test(val);
                 li.classList.toggle('is-met', !!ok);
@@ -165,12 +201,29 @@
             input.dataset.strengthMet = allRequirementsMet(val) ? '1' : '0';
         };
 
+        const update = () => {
+            const val = input.value;
+
+            if (!val.length) {
+                removePanel();
+                return;
+            }
+
+            renderStrength(val);
+        };
+
         input.addEventListener('input', update);
-        input.addEventListener('focus', () => panel.classList.add('is-active'));
-        input.addEventListener('blur', () => {
-            if (!input.value) panel.classList.remove('is-active');
+        input.addEventListener('change', update);
+        input.addEventListener('focus', () => {
+            if (input.value.length && panel) {
+                panel.classList.add('is-active');
+            }
         });
-        update();
+        input.addEventListener('blur', () => {
+            panel?.classList.remove('is-active');
+        });
+
+        removePanel();
     }
 
     function buildMatchFeedback(confirmInput, passwordInput) {
@@ -241,6 +294,11 @@
 
     function initFormHandlers() {
         document.querySelectorAll('form').forEach((form) => {
+            if (form.dataset.passwordFormBound === '1') {
+                return;
+            }
+            form.dataset.passwordFormBound = '1';
+
             const password = form.querySelector('[name="password"]');
             const confirm = form.querySelector('[name="password_confirm"]');
             const enhanced = form.querySelector('[data-password-enhanced]');
@@ -267,6 +325,9 @@
                 if (message) {
                     e.preventDefault();
                     showFormError(form, message);
+                    if (password && password.value) {
+                        password.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
                 }
             });
 
@@ -281,6 +342,11 @@
     }
 
     function init() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+
         document.querySelectorAll('input[type="password"]').forEach((input) => {
             wrapWithToggle(input);
         });
@@ -307,4 +373,10 @@
         allRequirementsMet,
         REQUIREMENTS,
     };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();

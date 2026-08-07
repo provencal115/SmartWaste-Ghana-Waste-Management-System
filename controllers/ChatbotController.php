@@ -1,17 +1,21 @@
 <?php
 require_once __DIR__ . '/../includes/Controller.php';
-require_once __DIR__ . '/../includes/ChatbotEngine.php';
 
 class ChatbotController extends Controller
 {
     public function init(): void
     {
+        $engine = new ChatbotEngine();
+        if (!$engine->isEnabled()) {
+            $this->json(['success' => false, 'message' => 'Assistant is disabled.', 'disabled' => true], 403);
+        }
+
         $sessionId = trim($_GET['session_id'] ?? '');
         if ($sessionId === '' || !preg_match('/^[a-zA-Z0-9_-]{8,64}$/', $sessionId)) {
             $this->json(['success' => false, 'message' => 'Invalid session.'], 400);
         }
 
-        $engine = new ChatbotEngine();
+        $user = Auth::user();
         $history = [];
 
         try {
@@ -35,12 +39,15 @@ class ChatbotController extends Controller
         }
 
         $this->json([
-            'success' => true,
-            'assistant_name' => 'SmartWaste Virtual Assistant',
-            'welcome' => $engine->welcomeMessage(),
-            'suggestions' => $engine->suggestions(),
-            'history' => $formattedHistory,
-            'csrf' => Csrf::token(),
+            'success'        => true,
+            'assistant_name' => $engine->assistantName(),
+            'welcome'        => $engine->welcomeMessage($user),
+            'suggestions'    => $engine->suggestions($user),
+            'history'        => $formattedHistory,
+            'csrf'           => Csrf::token(),
+            'contact_url'    => baseUrl('contact'),
+            'is_resident'    => ($user['role_name'] ?? '') === 'resident',
+            'ai_mode'        => ChatbotAiProvider::isAvailable() ? 'hybrid' : 'offline',
         ]);
     }
 
@@ -51,6 +58,11 @@ class ChatbotController extends Controller
         }
 
         Csrf::validate();
+
+        $engine = new ChatbotEngine();
+        if (!$engine->isEnabled()) {
+            $this->json(['success' => false, 'message' => 'Assistant is disabled.'], 403);
+        }
 
         $payload = json_decode(file_get_contents('php://input') ?: '{}', true);
         if (!is_array($payload)) {
@@ -72,10 +84,9 @@ class ChatbotController extends Controller
             $this->json(['success' => false, 'message' => 'Message is too long.'], 422);
         }
 
-        $engine = new ChatbotEngine();
-        $result = $engine->reply($message);
-
         $user = Auth::user();
+        $result = $engine->reply($message, $user);
+
         $userId = $user['id'] ?? null;
 
         try {
@@ -98,11 +109,14 @@ class ChatbotController extends Controller
         }
 
         $this->json([
-            'success' => true,
-            'response' => $result['response'],
-            'matched' => $result['matched'] ?? false,
-            'category' => $result['category'] ?? null,
-            'time' => date('Y-m-d H:i:s'),
+            'success'     => true,
+            'response'    => $result['response'],
+            'matched'     => $result['matched'] ?? false,
+            'category'    => $result['category'] ?? null,
+            'escalate'    => $result['escalate'] ?? false,
+            'source'      => $result['source'] ?? 'unknown',
+            'contact_url' => baseUrl('contact'),
+            'time'        => date('Y-m-d H:i:s'),
         ]);
     }
 }

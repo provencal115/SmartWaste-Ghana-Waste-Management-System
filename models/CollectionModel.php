@@ -92,10 +92,11 @@ class CollectionModel extends Model
      */
     public static function forCollector(int $collectorId, string $filter = 'all', ?int $zoneId = null): array
     {
-        $sql = "SELECT cs.*, r.address, r.city, r.zone_id, r.selected_bin_size, r.outstanding_balance,
+        $sql = "SELECT cs.*, r.address, r.city, r.zone_id, r.gps_lat, r.gps_lng,
+                       r.selected_bin_size, r.outstanding_balance,
                        u.first_name, u.last_name, u.phone, u.email,
                        d.bin_code, d.size AS assigned_bin_size, d.color,
-                       cz.name AS zone_name,
+                       cz.name AS zone_name, cs.stop_order,
                        (SELECT p.status FROM payments p WHERE p.resident_id = r.id ORDER BY p.created_at DESC LIMIT 1) AS last_payment_status
                 FROM collection_schedules cs
                 JOIN residents r ON cs.resident_id = r.id
@@ -125,9 +126,57 @@ class CollectionModel extends Model
                 break;
         }
 
-        $sql .= ' ORDER BY cs.preferred_date DESC, cs.preferred_time';
+        $sql .= ' ORDER BY cs.preferred_date DESC, COALESCE(cs.stop_order, 9999), cs.preferred_time';
 
         return self::fetchAll($sql, $params);
+    }
+
+    /** Scheduled pickups eligible for route optimisation on a given date/zone. */
+    public static function scheduledForOptimisation(string $date, int $zoneId, ?int $collectorId = null): array
+    {
+        $sql = "SELECT cs.*, r.address, r.city, r.zone_id, r.gps_lat, r.gps_lng,
+                       r.selected_bin_size, u.first_name, u.last_name
+                FROM collection_schedules cs
+                JOIN residents r ON cs.resident_id = r.id
+                JOIN users u ON r.user_id = u.id
+                WHERE r.zone_id = ?
+                  AND cs.preferred_date = ?
+                  AND cs.status IN ('scheduled', 'in_progress', 'delayed', 'rescheduled')";
+
+        $params = [$zoneId, $date];
+
+        if ($collectorId) {
+            $sql .= ' AND (cs.collector_id = ? OR cs.collector_id IS NULL)';
+            $params[] = $collectorId;
+        }
+
+        $sql .= ' ORDER BY cs.preferred_time, cs.id';
+
+        return self::fetchAll($sql, $params);
+    }
+
+    /** Today's pickups ordered by optimised route when available. */
+    public static function todayRouteForCollector(int $collectorId, ?int $zoneId = null): array
+    {
+        $optimized = OptimizedRouteModel::todayForCollector($collectorId);
+        $pickups = self::forCollector($collectorId, 'today', $zoneId);
+
+        if (!$optimized || empty($optimized['route_data_decoded']['stops'])) {
+            return $pickups;
+        }
+
+        $orderMap = [];
+        foreach ($optimized['route_data_decoded']['stops'] as $stop) {
+            $orderMap[(int)$stop['schedule_id']] = (int)$stop['order'];
+        }
+
+        usort($pickups, function ($a, $b) use ($orderMap) {
+            $oa = $orderMap[(int)$a['id']] ?? 9999;
+            $ob = $orderMap[(int)$b['id']] ?? 9999;
+            return $oa <=> $ob;
+        });
+
+        return $pickups;
     }
 
     public static function findForCollector(int $scheduleId, int $collectorId, ?int $zoneId = null): ?array
@@ -195,6 +244,11 @@ class CollectionModel extends Model
                 $scheduleId,
             ]
         );
+
+        try {
+            OptimizedRouteModel::syncScheduleStatus($scheduleId, $status);
+        } catch (Throwable) {
+        }
     }
 
     public static function stats(): array

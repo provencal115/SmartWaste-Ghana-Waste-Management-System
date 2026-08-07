@@ -132,9 +132,9 @@ function ensureBrandPngAssets(): void
         }
     }
 
-    $source = imageAbsolutePath('collectors/collector-with-resident.jpg')
-        ?? imageAbsolutePath('hero/hero-banner.jpg')
-        ?? imageAbsolutePath('residents/ghana-family.jpg');
+    $source = imageAbsolutePath('logos/logo.png')
+        ?? imageAbsolutePath('logos/logo.jpg')
+        ?? imageAbsolutePath('hero/hero-banner.jpg');
 
     $writePng = static function (string $dest, int $size) use ($source): bool {
         if (!extension_loaded('gd')) {
@@ -185,7 +185,7 @@ function ensureBrandPngAssets(): void
 
 /**
  * Ensure brand logo and favicon exist with correct file extensions.
- * Works without GD (copies JPEG sources); uses PNG generation when GD is available.
+ * Never overwrites existing logo files — replace assets/images/logos/logo.* manually.
  */
 function ensureBrandImageAssets(): void
 {
@@ -202,34 +202,42 @@ function ensureBrandImageAssets(): void
         }
     }
 
-    $logoSource = imageAbsolutePath('collectors/collector-with-resident.jpg')
-        ?? imageAbsolutePath('hero/hero-banner.jpg')
-        ?? imageAbsolutePath('residents/ghana-family.jpg');
-    $iconSource = imageAbsolutePath('testimonials/testimonial-kwame.jpg')
-        ?? imageAbsolutePath('hero/hero-collector.jpg')
-        ?? $logoSource;
-
-    if ($logoSource) {
-        copy($logoSource, $base . '/logos/logo.jpg');
-    }
-    if ($iconSource) {
-        copy($iconSource, $base . '/icons/favicon.jpg');
-    }
-
-    // Remove invalid JPEG files incorrectly saved with a .png extension
-    foreach (['logos/logo.png', 'icons/favicon.png'] as $bad) {
-        $full = $base . '/' . str_replace('/', DIRECTORY_SEPARATOR, $bad);
+    // Remove invalid, empty, or mis-typed brand image files
+    foreach (['logos/logo.png', 'icons/favicon.png', 'logos/logo.jpg', 'icons/favicon.jpg'] as $candidate) {
+        $full = $base . '/' . str_replace('/', DIRECTORY_SEPARATOR, $candidate);
         if (!is_file($full)) {
             continue;
         }
+        $size = filesize($full);
         $info = @getimagesize($full);
-        if ($info && ($info['mime'] ?? '') !== 'image/png') {
+        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+        $invalid = $size === false || $size < 500 || $info === false;
+        if (!$invalid && $ext === 'png' && ($info['mime'] ?? '') !== 'image/png') {
+            $invalid = true;
+        }
+        if ($invalid) {
             @unlink($full);
         }
     }
 
-    if (extension_loaded('gd')) {
-        ensureBrandPngAssets();
+    $hasLogo = resolveImageRelativePath('logos/logo.png') !== null
+        || resolveImageRelativePath('logos/logo.jpg') !== null;
+    $hasFavicon = resolveImageRelativePath('icons/favicon.png') !== null
+        || resolveImageRelativePath('icons/favicon.jpg') !== null;
+
+    if (!$hasLogo || !$hasFavicon) {
+        if (extension_loaded('gd')) {
+            ensureBrandPngAssets();
+        } else {
+            $logoSource = imageAbsolutePath('collectors/collector-with-resident.jpg')
+                ?? imageAbsolutePath('hero/hero-banner.jpg');
+            if (!$hasLogo && $logoSource) {
+                copy($logoSource, $base . '/logos/logo.jpg');
+            }
+            if (!$hasFavicon && $logoSource) {
+                copy($logoSource, $base . '/icons/favicon.jpg');
+            }
+        }
     }
 }
 
@@ -247,13 +255,7 @@ function img(string $relativePath): string
             ?? imagePlaceholderRelativePath();
     }
 
-    $url = asset('images/' . $resolved);
-    $full = imagesBaseDir() . '/' . str_replace('/', DIRECTORY_SEPARATOR, $resolved);
-    if (is_file($full)) {
-        $url .= '?v=' . filemtime($full);
-    }
-
-    return $url;
+    return asset('images/' . $resolved);
 }
 
 /**
@@ -285,23 +287,50 @@ function fleetOperationsPoster(): string
     return img('trucks/garbage-truck-1.jpg');
 }
 
-/** Site logo and favicon (JPEG — reliable without GD; PNG generated when GD is available). */
+/** Site logo and favicon — single source: assets/images/logos/logo.* */
+function siteLogoRelativePath(): ?string
+{
+    return resolveImageRelativePath('logos/logo.png')
+        ?? resolveImageRelativePath('logos/logo.jpg');
+}
+
 function siteLogo(): string
 {
-    $png = resolveImageRelativePath('logos/logo.png');
-    if ($png !== null) {
-        return asset('images/' . $png);
+    $rel = siteLogoRelativePath();
+    if ($rel !== null) {
+        return asset('images/' . $rel);
     }
     return img('logos/logo.jpg');
 }
 
+function siteFaviconRelativePath(): ?string
+{
+    return resolveImageRelativePath('icons/favicon.png')
+        ?? resolveImageRelativePath('icons/favicon.jpg');
+}
+
 function siteFavicon(): string
 {
-    $png = resolveImageRelativePath('icons/favicon.png');
-    if ($png !== null) {
-        return asset('images/' . $png);
+    $rel = siteFaviconRelativePath();
+    if ($rel !== null) {
+        return asset('images/' . $rel);
     }
     return img('icons/favicon.jpg');
+}
+
+function siteFaviconMime(): string
+{
+    $rel = siteFaviconRelativePath();
+    if ($rel === null) {
+        return 'image/png';
+    }
+    return str_ends_with(strtolower($rel), '.png') ? 'image/png' : 'image/jpeg';
+}
+
+function siteLogoAbsolutePath(): ?string
+{
+    $rel = siteLogoRelativePath();
+    return $rel ? imageAbsolutePath($rel) : null;
 }
 
 /**

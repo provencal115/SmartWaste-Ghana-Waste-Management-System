@@ -24,10 +24,16 @@
   --color-danger: #dc2626;
   --color-info: #0284c7;
   --color-purple: #7c3aed;
+  --color-success-light: #d1fae5;
+  --color-warning-light: #fef3c7;
+  --color-danger-light: #fee2e2;
+  --color-info-light: #e0f2fe;
 
   /* Surfaces */
   --bg-body: #f1f5f9;
   --bg-surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --card-bg: #ffffff;
   --bg-surface-raised: #ffffff;
   --bg-surface-sunken: #f8fafc;
   --bg-sidebar: #ffffff;
@@ -109,9 +115,15 @@
   --color-danger: #f87171;
   --color-info: #38bdf8;
   --color-purple: #a78bfa;
+  --color-success-light: rgba(52, 211, 153, 0.15);
+  --color-warning-light: rgba(251, 191, 36, 0.15);
+  --color-danger-light: rgba(248, 113, 113, 0.15);
+  --color-info-light: rgba(56, 189, 248, 0.15);
 
   --bg-body: #0b1120;
   --bg-surface: #111827;
+  --surface-muted: #1e293b;
+  --card-bg: #111827;
   --bg-surface-raised: #1e293b;
   --bg-surface-sunken: #0f172a;
   --bg-sidebar: #111827;
@@ -629,14 +641,15 @@ img {
 }
 
 .sidebar .nav-link.active {
-  background: var(--gradient-brand);
-  color: var(--text-inverse);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  box-shadow: none;
+  font-weight: 600;
 }
 
 .sidebar .nav-link.active:hover {
-  color: var(--text-inverse);
-  filter: brightness(1.05);
+  color: var(--color-primary);
+  filter: none;
 }
 
 .sidebar-nav-badge {
@@ -656,8 +669,8 @@ img {
 }
 
 .sidebar .nav-link.active .sidebar-nav-badge {
-  background: rgba(255, 255, 255, 0.95);
-  color: #047857;
+  background: var(--color-danger);
+  color: var(--text-inverse);
 }
 
 .quick-action-badge {

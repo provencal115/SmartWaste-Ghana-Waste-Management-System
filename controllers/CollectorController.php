@@ -28,8 +28,10 @@ class CollectorController extends Controller
         $stats = $collector ? CollectionModel::collectorStats((int)$collector['id'], $zoneId) : [
             'today_total' => 0, 'today_completed' => 0, 'today_pending' => 0, 'today_in_progress' => 0,
         ];
+        $todayRoute = $collector ? OptimizedRouteModel::todayForCollector((int)$collector['id']) : null;
+        $todayStops = $collector ? CollectionModel::todayRouteForCollector((int)$collector['id'], $zoneId) : [];
 
-        $this->view('collector/dashboard', compact('user', 'collector', 'pickups', 'stats', 'filter'));
+        $this->view('collector/dashboard', compact('user', 'collector', 'pickups', 'stats', 'filter', 'todayRoute', 'todayStops'));
     }
 
     public function routes(): void
@@ -37,8 +39,9 @@ class CollectorController extends Controller
         $user = $this->requireRole(['collector']);
         $collector = $this->collectorProfile($user);
         $zoneId = $this->zoneId($collector);
-        $schedule = $collector ? CollectionModel::forCollector((int)$collector['id'], 'today', $zoneId) : [];
-        $this->view('collector/routes', compact('schedule', 'collector'));
+        $schedule = $collector ? CollectionModel::todayRouteForCollector((int)$collector['id'], $zoneId) : [];
+        $optimizedRoute = $collector ? OptimizedRouteModel::todayForCollector((int)$collector['id']) : null;
+        $this->view('collector/routes', compact('schedule', 'collector', 'optimizedRoute'));
     }
 
     public function scan(): void

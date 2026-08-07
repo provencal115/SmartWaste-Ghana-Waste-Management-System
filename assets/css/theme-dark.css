@@ -83,6 +83,12 @@ html[data-theme="dark"] .dropdown-menu {
 [data-theme="dark"] .form-control::placeholder,
 [data-theme="dark"] textarea::placeholder { color: var(--text-muted) !important; opacity: 1; }
 
+[data-theme="dark"] select option,
+[data-theme="dark"] .form-select option {
+  background-color: var(--bg-surface-raised);
+  color: var(--text-primary);
+}
+
 [data-theme="dark"] .form-check-input { background-color: var(--bg-input); border-color: var(--border-color-strong); }
 [data-theme="dark"] .form-check-input:checked { background-color: var(--color-primary); border-color: var(--color-primary); }
 [data-theme="dark"] .form-check-label { color: var(--text-secondary); }
@@ -179,7 +185,10 @@ html[data-theme="dark"] .dropdown-menu {
 [data-theme="dark"] .sidebar-user-name { color: var(--text-primary); }
 [data-theme="dark"] .sidebar .nav-link { color: var(--text-secondary); }
 [data-theme="dark"] .sidebar .nav-link:hover { color: var(--color-primary); background: var(--bg-hover); }
-[data-theme="dark"] .sidebar .nav-link.active { color: var(--text-inverse) !important; }
+[data-theme="dark"] .sidebar .nav-link.active {
+  background: rgba(52, 211, 153, 0.12) !important;
+  color: var(--color-primary) !important;
+}
 [data-theme="dark"] .topbar { background: var(--bg-topbar); border-color: var(--border-color); }
 [data-theme="dark"] .glass-nav { background: var(--bg-glass-strong) !important; border-color: var(--border-glass) !important; }
 [data-theme="dark"] .glass-nav .navbar-brand,
@@ -293,7 +302,7 @@ html[data-theme="dark"] .dropdown-menu {
   background: rgba(16, 185, 129, 0.18);
 }
 
-[data-theme="dark"] .password-strength-panel {
+[data-theme="dark"] .password-strength-panel-inner {
   background: var(--bg-surface-sunken);
   border-color: var(--border-color);
 }
@@ -306,6 +315,12 @@ html[data-theme="dark"] .dropdown-menu {
 
 [data-theme="dark"] .password-strength-bar { background: var(--border-color); }
 
+[data-theme="dark"] .password-strength-panel[data-level="1"] .password-strength-label { color: #f87171; }
+[data-theme="dark"] .password-strength-panel[data-level="2"] .password-strength-label { color: #fb923c; }
+[data-theme="dark"] .password-strength-panel[data-level="3"] .password-strength-label { color: #fbbf24; }
+[data-theme="dark"] .password-strength-panel[data-level="4"] .password-strength-label { color: #34d399; }
+[data-theme="dark"] .password-strength-panel[data-level="5"] .password-strength-label { color: #6ee7b7; }
+
 [data-theme="dark"] .password-match-feedback.is-match { color: #34d399; }
 [data-theme="dark"] .password-match-feedback.is-mismatch { color: #f87171; }
 
@@ -313,5 +328,81 @@ html[data-theme="dark"] .dropdown-menu {
   color: #fca5a5;
   background: rgba(220, 38, 38, 0.15);
   border-color: rgba(248, 113, 113, 0.25);
+}
+
+/* Inventory forecasting */
+[data-theme="dark"] .inv-size-card,
+[data-theme="dark"] .inv-forecast-card {
+  background: var(--bg-surface-raised) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .inv-metric-row {
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .inv-metric-row strong {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .inv-limited-note {
+  color: var(--color-warning);
+}
+
+[data-theme="dark"] .inv-procure-rec {
+  color: var(--text-primary);
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+/* Settings */
+[data-theme="dark"] .settings-card,
+[data-theme="dark"] .settings-section {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .settings-section-desc,
+[data-theme="dark"] .settings-card-body .text-secondary {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .settings-input,
+[data-theme="dark"] .settings-range {
+  background: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Analytics */
+[data-theme="dark"] .performance-metric {
+  background: var(--surface-muted) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .performance-metric-label {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .operational-intelligence-header p,
+[data-theme="dark"] .operational-intelligence-header a {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .alert-danger {
+  background: rgba(248, 113, 113, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+[data-theme="dark"] .alert-danger strong {
+  color: #fecaca !important;
+}
+
+/* Light mode form placeholders */
+[data-theme="light"] .form-control::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
 }
 

@@ -18,6 +18,39 @@ function homeAnchor(string $hash): string
 }
 
 /**
+ * AI customer assistant settings (admin-configurable).
+ *
+ * @return array{enabled: bool, assistant_name: string, welcome_message: string, company_info: string}
+ */
+function chatbotSettings(): array
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $defaults = [
+        'enabled'         => true,
+        'assistant_name'  => 'SmartWaste Assistant',
+        'welcome_message' => '',
+        'company_info'    => '',
+    ];
+
+    try {
+        $stored = SettingModel::get('ai_assistant');
+        if (is_array($stored)) {
+            $cached = array_merge($defaults, $stored);
+            return $cached;
+        }
+    } catch (Throwable $e) {
+        // Table may not exist yet during setup
+    }
+
+    $cached = $defaults;
+    return $cached;
+}
+
+/**
  * Company contact & location (Accra, Ghana).
  *
  * @return array<string, mixed>

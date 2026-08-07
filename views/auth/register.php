@@ -28,7 +28,7 @@
                         <input type="password" name="password_confirm" id="registerPasswordConfirm" class="form-control" data-password-confirm="registerPassword" required autocomplete="new-password">
                     </div>
                 </div>
-                <div class="col-md-6"><label class="form-label">Address</label><input name="address" class="form-control" required></div>
+                <div class="col-md-6"><label class="form-label" for="registerAddress">Address/GPS</label><input name="address" id="registerAddress" class="form-control" placeholder="Enter your address or GPS location" required></div>
                 <div class="col-md-6"><label class="form-label">City</label><input name="city" value="Accra" class="form-control"></div>
                 <div class="col-md-6"><label class="form-label">Zone</label>
                     <select name="zone_id" class="form-select" id="zoneSelect"><option value="">Select zone</option>

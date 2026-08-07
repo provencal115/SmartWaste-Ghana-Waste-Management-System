@@ -1,0 +1,141 @@
+/* Route Optimisation UI */
+
+.route-map-container {
+    height: 420px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    background: var(--surface-muted, #f1f5f9);
+}
+
+[data-theme="dark"] .route-map-container {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: #0f172a;
+}
+
+.route-stat-box {
+    background: var(--surface-muted, #f8fafc);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    height: 100%;
+}
+
+[data-theme="dark"] .route-stat-box {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.route-stat-label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 0.15rem;
+}
+
+.route-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.route-timeline-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+}
+
+.route-stop-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+.route-stop-body {
+    flex: 1;
+    background: var(--surface-muted, #f8fafc);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+}
+
+[data-theme="dark"] .route-stop-body {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.route-progress-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: var(--surface-muted, #e2e8f0);
+    overflow: hidden;
+}
+
+.route-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #16a34a, #22c55e);
+    border-radius: 999px;
+    transition: width 0.6s ease;
+}
+
+.route-stop-card {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+    border-radius: 12px;
+    background: var(--card-bg, #fff);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.route-stop-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.route-analytics-list .list-group-item {
+    background: transparent;
+    border-color: var(--border-color, rgba(0, 0, 0, 0.06));
+}
+
+.route-marker-label {
+    background: #16a34a;
+    color: #fff;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.8rem;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.route-marker-depot {
+    background: #1e293b;
+    color: #fff;
+    border-radius: 8px;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border: 2px solid #fff;
+}
+
+@media (max-width: 768px) {
+    .route-map-container {
+        height: 300px;
+    }
+}

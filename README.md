@@ -1,12 +1,12 @@
 # Smart Garbage Collection & Inventory Management System
 
-A professional full-stack **PHP MVC** web application for waste management in Ghana.
+A professional **PHP MVC** web application for waste management in Ghana — single-stack architecture (no separate React or REST API layer).
 
 ## Technology Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | PHP 8+, MVC Architecture |
+| Application | PHP 8+ MVC (controllers, models, views) |
 | Database | MySQL with PDO |
 | Frontend | HTML5, CSS3, JavaScript (ES6+) |
 | CSS Framework | Bootstrap 5 |
@@ -16,6 +16,7 @@ A professional full-stack **PHP MVC** web application for waste management in Gh
 | Icons | Font Awesome 6 |
 | PDF | Dompdf |
 | Server | XAMPP (Apache + MySQL) |
+| API (internal) | PHP routes via `index.php?url=` (e.g. `api/pricing`, `api/chatbot/send`) |
 
 ## Project Structure (MVC)
 
@@ -93,10 +94,6 @@ Residents register at `/index.php?url=auth/register`
 - Session timeout (1 hour)
 - Role-based access control
 - Activity audit trail
-
-## Note on React Frontend
-
-The `frontend/` folder contains an earlier React prototype. The **primary application** is the PHP MVC version at the project root.
 
 ## License
 

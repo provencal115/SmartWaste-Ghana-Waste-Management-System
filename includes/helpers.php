@@ -11,7 +11,9 @@ function e(string $str): string
 function redirect(string $route, array $params = []): void
 {
     $url = baseUrl($route);
-    if ($params) $url .= '?' . http_build_query($params);
+    if ($params) {
+        $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($params);
+    }
     header("Location: {$url}");
     exit;
 }
@@ -23,7 +25,12 @@ function baseUrl(string $path = ''): string
 
 function asset(string $path): string
 {
-    return rtrim(appConfig()['url'], '/') . '/assets/' . ltrim($path, '/');
+    $url = rtrim(appConfig()['url'], '/') . '/assets/' . ltrim($path, '/');
+    $file = dirname(__DIR__) . '/assets/' . ltrim($path, '/');
+    if (is_file($file)) {
+        return $url . '?v=' . filemtime($file);
+    }
+    return $url;
 }
 
 /** Base URL prefix for JavaScript fetch/AJAX calls (index.php?url=). */
@@ -143,7 +150,7 @@ function statusBadge(string $status): string
 {
     $map = [
         'completed' => 'success', 'active' => 'success', 'available' => 'success', 'resolved' => 'success',
-        'replied' => 'success', 'new' => 'danger', 'on_route' => 'primary',
+        'replied' => 'success', 'new' => 'danger', 'on_route' => 'primary', 'optimised' => 'success',
         'pending' => 'warning', 'scheduled' => 'info', 'in_progress' => 'primary', 'delayed' => 'warning',
         'read' => 'info',
         'failed' => 'danger', 'missed' => 'danger', 'overdue' => 'danger', 'damaged' => 'danger',

@@ -81,7 +81,7 @@ class Mailer
             $mail->isHTML(true);
             $mail->Subject = $config['welcome']['subject'] ?? 'Welcome to Smart Waste Management Ghana!';
 
-            $logoPath = imageAbsolutePath('logos/logo.png') ?? imageAbsolutePath('logos/logo.jpg');
+            $logoPath = siteLogoAbsolutePath();
             $hasLogo  = $logoPath !== null && is_file($logoPath);
             if ($hasLogo) {
                 $mail->addEmbeddedImage($logoPath, 'company_logo', basename($logoPath));
@@ -196,7 +196,7 @@ class Mailer
             $mail->Subject = $config['contact']['customer_confirm_subject']
                 ?? "We've Received Your Message – Smart Waste Management Ghana";
 
-            $logoPath = imageAbsolutePath('logos/logo.png') ?? imageAbsolutePath('logos/logo.jpg');
+            $logoPath = siteLogoAbsolutePath();
             $hasLogo  = $logoPath !== null && is_file($logoPath);
             if ($hasLogo) {
                 $mail->addEmbeddedImage($logoPath, 'company_logo', basename($logoPath));
