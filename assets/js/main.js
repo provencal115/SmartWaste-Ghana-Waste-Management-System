@@ -56,14 +56,15 @@
 
         const isMobile = () => mq.matches;
 
-        const lockScroll = () => {
-            /* Do not lock page scroll — keeps mobile nav usable without freezing the screen */
+        const lockScroll = (lock) => {
+            document.body.classList.toggle('sidebar-open', lock);
+            document.documentElement.classList.toggle('sidebar-open', lock);
         };
 
         const close = () => {
             sidebar.classList.remove('is-open', 'open');
             overlay?.classList.remove('show', 'is-visible');
-            lockScroll();
+            lockScroll(false);
         };
 
         const open = () => {
@@ -72,7 +73,7 @@
             if (overlay) {
                 overlay.classList.add('show', 'is-visible');
             }
-            lockScroll();
+            lockScroll(true);
         };
 
         toggle.addEventListener('click', (e) => {
@@ -113,11 +114,19 @@
 
         const closeNav = () => {
             if (collapseEl.classList.contains('show')) bsCollapse.hide();
+            document.body.classList.remove('nav-open');
+            document.documentElement.classList.remove('nav-open');
         };
 
-        collapseEl.addEventListener('shown.bs.collapse', () => {});
+        collapseEl.addEventListener('shown.bs.collapse', () => {
+            document.body.classList.add('nav-open');
+            document.documentElement.classList.add('nav-open');
+        });
 
-        collapseEl.addEventListener('hidden.bs.collapse', () => {});
+        collapseEl.addEventListener('hidden.bs.collapse', () => {
+            document.body.classList.remove('nav-open');
+            document.documentElement.classList.remove('nav-open');
+        });
 
         collapseEl.querySelectorAll('.nav-link, .btn-saas, .dropdown-item').forEach(link => {
             link.addEventListener('click', () => {

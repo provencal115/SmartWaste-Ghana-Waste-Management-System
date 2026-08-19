@@ -9,7 +9,6 @@ if ($role === 'administrator') {
     try { $contactUnread = ContactMessageModel::unreadCount(); } catch (Throwable $e) {}
 }
 $notifRoute = notificationRoute($role);
-$initials = strtoupper(substr($user['first_name'] ?? 'U', 0, 1) . substr($user['last_name'] ?? '', 0, 1));
 $dashRoute = ($config['dashboard_routes'][$role] ?? 'home');
 ?>
 <header class="topbar">
@@ -39,7 +38,7 @@ $dashRoute = ($config['dashboard_routes'][$role] ?? 'home');
         <?php endif; ?>
         <div class="dropdown profile-dropdown">
             <button class="dropdown-toggle border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <div class="sidebar-avatar" style="width:32px;height:32px;font-size:0.75rem"><?= e($initials) ?></div>
+                <?php uiUserAvatar($user, 'topbar-user-avatar', 32); ?>
                 <span class="d-none d-md-inline"><?= e($user['first_name']) ?></span>
                 <span class="d-none d-lg-inline badge rounded-pill ms-1" style="background:var(--color-primary-subtle);color:var(--color-primary);font-size:0.65rem;font-weight:600"><?= e($config['roles'][$role] ?? $role) ?></span>
                 <i class="fa-solid fa-chevron-down ms-1 small text-muted"></i>
@@ -48,6 +47,7 @@ $dashRoute = ($config['dashboard_routes'][$role] ?? 'home');
                 <li><span class="dropdown-item-text small text-muted"><?= e($user['email']) ?></span></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="<?= baseUrl($dashRoute) ?>"><i class="fa-solid fa-gauge-high me-2"></i>Dashboard</a></li>
+                <li><a class="dropdown-item" href="<?= baseUrl('account/profile') ?>"><i class="fa-solid fa-user me-2"></i>My Profile</a></li>
                 <?php if ($role === 'resident'): ?>
                 <li><a class="dropdown-item" href="<?= baseUrl('resident/notifications') ?>"><i class="fa-solid fa-bell me-2"></i>Notifications</a></li>
                 <?php endif; ?>

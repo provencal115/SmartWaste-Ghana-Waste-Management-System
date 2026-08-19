@@ -126,4 +126,13 @@ class UserModel extends Model
     {
         return self::execute('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE reset_token = ? AND reset_token_expires > NOW()', [$hash, $token]);
     }
+
+    public static function updateAvatar(int $userId, string $avatarPath): bool
+    {
+        try {
+            return self::execute('UPDATE users SET avatar_url = ? WHERE id = ?', [$avatarPath, $userId]);
+        } catch (Throwable) {
+            return false;
+        }
+    }
 }

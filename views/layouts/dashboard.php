@@ -23,7 +23,7 @@
     <div class="main-content">
         <?php require __DIR__ . '/../partials/topbar.php'; ?>
         <div class="page-content">
-            <?php uiDashboardBanner(); ?>
+            <?php uiDashboardBanner($user['role_name'] ?? null, $user); ?>
             <?= $content ?>
         </div>
     </div>

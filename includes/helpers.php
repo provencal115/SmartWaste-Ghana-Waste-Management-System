@@ -210,3 +210,111 @@ function navActive(string $route): string
     $current = trim($_GET['url'] ?? 'home', '/');
     return str_starts_with($current, $route) ? 'active' : '';
 }
+
+/** True on the main dashboard page for the logged-in role (e.g. admin/dashboard). */
+function isRoleDashboardPage(): bool
+{
+    $current = trim($_GET['url'] ?? '', '/');
+    $routes = array_values(appConfig()['dashboard_routes'] ?? []);
+    return in_array($current, $routes, true);
+}
+
+/** Time-based greeting using the authenticated user's first name. */
+function dashboardGreeting(?array $user): string
+{
+    if (!$user) {
+        return '';
+    }
+    $name = trim($user['first_name'] ?? '');
+    if ($name === '') {
+        $name = 'User';
+    }
+    $hour = (int) date('G');
+    if ($hour >= 5 && $hour < 12) {
+        $period = 'Good Morning';
+    } elseif ($hour >= 12 && $hour < 17) {
+        $period = 'Good Afternoon';
+    } else {
+        $period = 'Good Evening';
+    }
+    return "{$period}, {$name}";
+}
+
+function userAvatarInitials(?array $user): string
+{
+    return strtoupper(substr($user['first_name'] ?? 'U', 0, 1) . substr($user['last_name'] ?? '', 0, 1));
+}
+
+function userAvatarStoragePath(?string $avatarUrl): ?string
+{
+    if (!$avatarUrl) {
+        return null;
+    }
+    $path = dirname(__DIR__) . '/assets/' . ltrim($avatarUrl, '/');
+    return is_file($path) ? $path : null;
+}
+
+function userAvatarAssetUrl(?array $user): ?string
+{
+    $url = trim($user['avatar_url'] ?? '');
+    if ($url === '' || !userAvatarStoragePath($url)) {
+        return null;
+    }
+    return asset($url);
+}
+
+/**
+ * Validate and store a profile avatar upload for the given user.
+ *
+ * @return array{ok: bool, path?: string, error?: string}
+ */
+function saveUserAvatarUpload(int $userId, array $file): array
+{
+    $maxBytes = 2 * 1024 * 1024;
+
+    if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        return ['ok' => false, 'error' => 'No file uploaded.'];
+    }
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        return ['ok' => false, 'error' => 'Upload failed. Please try again.'];
+    }
+    if (($file['size'] ?? 0) > $maxBytes) {
+        return ['ok' => false, 'error' => 'Image must be 2 MB or smaller.'];
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : false;
+    if ($finfo) {
+        finfo_close($finfo);
+    }
+
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!$mime || !isset($allowed[$mime])) {
+        return ['ok' => false, 'error' => 'Only JPG, PNG, and WEBP images are allowed.'];
+    }
+
+    $dir = rtrim(appConfig()['upload_path'], '/\\') . '/avatars';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        return ['ok' => false, 'error' => 'Could not create upload directory.'];
+    }
+
+    $existing = UserModel::findById($userId);
+    if ($existing && !empty($existing['avatar_url'])) {
+        $old = userAvatarStoragePath($existing['avatar_url']);
+        if ($old) {
+            @unlink($old);
+        }
+    }
+
+    $filename = 'avatar_' . $userId . '_' . time() . '.' . $allowed[$mime];
+    $fullPath = $dir . DIRECTORY_SEPARATOR . $filename;
+    if (!move_uploaded_file($file['tmp_name'], $fullPath)) {
+        return ['ok' => false, 'error' => 'Could not save image.'];
+    }
+
+    return ['ok' => true, 'path' => 'uploads/avatars/' . $filename];
+}

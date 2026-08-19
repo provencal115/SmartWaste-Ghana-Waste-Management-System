@@ -6,22 +6,7 @@
 
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
-ini_set('log_errors', 1);
 date_default_timezone_set('Africa/Accra');
-
-set_exception_handler(static function (Throwable $e): void {
-    error_log('SmartWaste uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-    if (!headers_sent()) {
-        http_response_code(500);
-    }
-    $errorFile = __DIR__ . '/views/errors/500.php';
-    if (is_file($errorFile)) {
-        require $errorFile;
-    } else {
-        echo 'Something went wrong. Please try again.';
-    }
-    exit(1);
-});
 
 // Autoload core
 require_once __DIR__ . '/includes/AppConfig.php';
@@ -77,6 +62,10 @@ $router->get('auth/forgot', 'AuthController@forgot');
 $router->post('auth/forgot', 'AuthController@forgotPost');
 $router->get('auth/reset', 'AuthController@reset');
 $router->post('auth/reset', 'AuthController@resetPost');
+
+// Account
+$router->get('account/profile', 'AccountController@profile');
+$router->post('account/profile', 'AccountController@profilePost');
 
 // Resident
 $router->get('resident/dashboard', 'ResidentController@dashboard');

@@ -35,28 +35,12 @@ class Router
 
         if (!file_exists($controllerFile)) {
             http_response_code(500);
-            error_log("SmartWaste: controller file missing — {$controllerName}");
-            require __DIR__ . '/../views/errors/500.php';
+            echo "Controller not found";
             return;
         }
 
         require_once $controllerFile;
-
-        if (!class_exists($controllerName)) {
-            http_response_code(500);
-            error_log("SmartWaste: controller class missing — {$controllerName}");
-            require __DIR__ . '/../views/errors/500.php';
-            return;
-        }
-
         $controller = new $controllerName();
-
-        if (!method_exists($controller, $action)) {
-            http_response_code(404);
-            require __DIR__ . '/../views/errors/404.php';
-            return;
-        }
-
         $controller->$action();
     }
 }

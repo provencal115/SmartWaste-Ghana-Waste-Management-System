@@ -202,20 +202,14 @@ function ensureBrandImageAssets(): void
         }
     }
 
-    // Remove invalid, empty, or mis-typed brand image files
-    foreach (['logos/logo.png', 'icons/favicon.png', 'logos/logo.jpg', 'icons/favicon.jpg'] as $candidate) {
-        $full = $base . '/' . str_replace('/', DIRECTORY_SEPARATOR, $candidate);
+    // Remove invalid JPEG files incorrectly saved with a .png extension
+    foreach (['logos/logo.png', 'icons/favicon.png'] as $bad) {
+        $full = $base . '/' . str_replace('/', DIRECTORY_SEPARATOR, $bad);
         if (!is_file($full)) {
             continue;
         }
-        $size = filesize($full);
         $info = @getimagesize($full);
-        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        $invalid = $size === false || $size < 500 || $info === false;
-        if (!$invalid && $ext === 'png' && ($info['mime'] ?? '') !== 'image/png') {
-            $invalid = true;
-        }
-        if ($invalid) {
+        if ($info && ($info['mime'] ?? '') !== 'image/png') {
             @unlink($full);
         }
     }
@@ -226,17 +220,19 @@ function ensureBrandImageAssets(): void
         || resolveImageRelativePath('icons/favicon.jpg') !== null;
 
     if (!$hasLogo || !$hasFavicon) {
+        $logoSource = imageAbsolutePath('collectors/collector-with-resident.jpg')
+            ?? imageAbsolutePath('hero/hero-banner.jpg');
+        $iconSource = imageAbsolutePath('testimonials/testimonial-kwame.jpg')
+            ?? imageAbsolutePath('hero/hero-collector.jpg')
+            ?? $logoSource;
+        if (!$hasLogo && $logoSource) {
+            copy($logoSource, $base . '/logos/logo.jpg');
+        }
+        if (!$hasFavicon && $iconSource) {
+            copy($iconSource, $base . '/icons/favicon.jpg');
+        }
         if (extension_loaded('gd')) {
             ensureBrandPngAssets();
-        } else {
-            $logoSource = imageAbsolutePath('collectors/collector-with-resident.jpg')
-                ?? imageAbsolutePath('hero/hero-banner.jpg');
-            if (!$hasLogo && $logoSource) {
-                copy($logoSource, $base . '/logos/logo.jpg');
-            }
-            if (!$hasFavicon && $logoSource) {
-                copy($logoSource, $base . '/icons/favicon.jpg');
-            }
         }
     }
 }

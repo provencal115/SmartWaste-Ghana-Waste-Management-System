@@ -52,7 +52,7 @@ function uiEmptyState(string $icon, string $title, string $message, ?string $act
     echo '</div>';
 }
 
-function uiDashboardBanner(?string $role = null): void
+function uiDashboardBanner(?string $role = null, ?array $user = null): void
 {
     [$title, $subtitle, $icon] = dashboardBannerMeta($role);
     $src = dashboardBannerImage($role);
@@ -61,9 +61,30 @@ function uiDashboardBanner(?string $role = null): void
     echo '<div class="dashboard-hero-banner-overlay"></div>';
     echo '<div class="dashboard-hero-banner-content">';
     echo '<span class="dashboard-hero-badge"><i class="fa-solid fa-location-dot me-1"></i> Ghana</span>';
+    if ($user && isRoleDashboardPage()) {
+        echo '<p class="dashboard-hero-greeting mb-1">' . e(dashboardGreeting($user)) . '</p>';
+    }
     echo '<h2 class="dashboard-hero-title"><i class="fa-solid ' . e($icon) . ' me-2"></i>' . e($title) . '</h2>';
     echo '<p class="dashboard-hero-subtitle mb-0">' . e($subtitle) . '</p>';
     echo '</div></div>';
+}
+
+/** Circular profile avatar — uploaded photo or initials fallback. */
+function uiUserAvatar(?array $user, string $extraClass = '', int $size = 32): void
+{
+    $initials = userAvatarInitials($user);
+    $src = userAvatarAssetUrl($user);
+    $size = max(24, min(128, $size));
+    $class = trim('user-avatar ' . $extraClass);
+
+    if ($src) {
+        $displayName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+        echo '<img src="' . e($src) . '" alt="' . e($displayName !== '' ? $displayName : 'User') . '" class="' . e($class) . ' user-avatar-img" width="' . $size . '" height="' . $size . '" loading="lazy">';
+        return;
+    }
+
+    $fontSize = $size <= 32 ? '0.75rem' : '0.8125rem';
+    echo '<div class="' . e($class) . ' user-avatar-default" style="width:' . $size . 'px;height:' . $size . 'px;font-size:' . e($fontSize) . '" aria-hidden="true">' . e($initials) . '</div>';
 }
 
 /** Landing page Ghana branding strip. */
