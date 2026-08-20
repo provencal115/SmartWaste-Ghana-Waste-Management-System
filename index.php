@@ -66,6 +66,8 @@ $router->post('auth/reset', 'AuthController@resetPost');
 // Account
 $router->get('account/profile', 'AccountController@profile');
 $router->post('account/profile', 'AccountController@profilePost');
+$router->post('account/profile/name', 'AccountController@namePost');
+$router->post('account/profile/password', 'AccountController@passwordPost');
 
 // Resident
 $router->get('resident/dashboard', 'ResidentController@dashboard');

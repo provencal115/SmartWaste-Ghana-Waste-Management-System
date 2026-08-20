@@ -41,6 +41,14 @@ class Auth
         $_SESSION['last_activity'] = time();
     }
 
+    public static function updateSessionName(string $firstName, string $lastName): void
+    {
+        self::start();
+        if (isset($_SESSION['user_id'])) {
+            $_SESSION['name'] = trim($firstName . ' ' . $lastName);
+        }
+    }
+
     public static function logout(): void
     {
         self::start();

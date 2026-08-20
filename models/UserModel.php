@@ -135,4 +135,20 @@ class UserModel extends Model
             return false;
         }
     }
+
+    public static function updateName(int $userId, string $firstName, string $lastName): bool
+    {
+        return self::execute(
+            'UPDATE users SET first_name = ?, last_name = ? WHERE id = ?',
+            [$firstName, $lastName, $userId]
+        );
+    }
+
+    public static function updatePasswordHash(int $userId, string $passwordHash): bool
+    {
+        return self::execute(
+            'UPDATE users SET password_hash = ? WHERE id = ?',
+            [$passwordHash, $userId]
+        );
+    }
 }

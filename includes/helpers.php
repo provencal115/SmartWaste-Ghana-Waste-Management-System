@@ -95,6 +95,45 @@ function validatePassword(string $password): array
     return $errors;
 }
 
+/**
+ * Parse and validate a full name for profile updates.
+ *
+ * @return array{ok: bool, first_name?: string, last_name?: string, error?: string}
+ */
+function parseFullName(string $fullName): array
+{
+    $fullName = preg_replace('/\s+/u', ' ', trim($fullName)) ?? '';
+
+    if ($fullName === '' || mb_strlen($fullName) < 2) {
+        return ['ok' => false, 'error' => 'Please enter your full name (at least 2 characters).'];
+    }
+    if (mb_strlen($fullName) > 201) {
+        return ['ok' => false, 'error' => 'Name is too long.'];
+    }
+    if (!preg_match("/^[\p{L}\p{M}'.\- ]+$/u", $fullName)) {
+        return ['ok' => false, 'error' => 'Name contains invalid characters.'];
+    }
+
+    $parts = explode(' ', $fullName, 2);
+    $firstName = $parts[0];
+    $lastName = $parts[1] ?? '';
+
+    if (mb_strlen($firstName) > 100 || mb_strlen($lastName) > 100) {
+        return ['ok' => false, 'error' => 'Name is too long.'];
+    }
+
+    return [
+        'ok' => true,
+        'first_name' => $firstName,
+        'last_name' => $lastName,
+    ];
+}
+
+function formatUserFullName(array $user): string
+{
+    return trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+}
+
 function generateToken(int $bytes = 16): string
 {
     return bin2hex(random_bytes($bytes));
