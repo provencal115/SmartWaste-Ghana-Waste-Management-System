@@ -120,6 +120,141 @@ class CollectorController extends Controller
         redirect('collector/dashboard', ['filter' => $filter]);
     }
 
+    public function payments(): void
+    {
+        $user = $this->requireRole(['collector']);
+        $collector = $this->collectorProfile($user);
+        $payments = $collector ? PaymentModel::forCollector((int) $collector['id']) : [];
+        $this->view('collector/payments', compact('user', 'collector', 'payments'));
+    }
+
+    public function cashPayment(): void
+    {
+        $user = $this->requireRole(['collector']);
+        $collector = $this->collectorProfile($user);
+        if (!$collector) {
+            setFlash('error', 'Collector profile could not be loaded.');
+            redirect('collector/dashboard');
+        }
+
+        $scheduleId = (int) ($_GET['schedule_id'] ?? 0);
+        $zoneId = $this->zoneId($collector);
+        $schedule = CollectionModel::findForCollector($scheduleId, (int) $collector['id'], $zoneId);
+        if (!$schedule) {
+            setFlash('error', 'Collection not found or not assigned to you.');
+            redirect('collector/dashboard');
+        }
+
+        $amountDue = (float) ($schedule['outstanding_balance'] ?? 0);
+        if ($amountDue <= 0) {
+            $residentRow = Model::fetchOne('SELECT service_fee, outstanding_balance FROM residents WHERE id = ?', [$schedule['resident_id']]);
+            $amountDue = (float) ($residentRow['outstanding_balance'] ?? 0);
+            if ($amountDue <= 0) {
+                $amountDue = (float) ($residentRow['service_fee'] ?? 0);
+            }
+        }
+
+        $customerName = trim(($schedule['first_name'] ?? '') . ' ' . ($schedule['last_name'] ?? ''));
+        $pendingPayment = PaymentModel::hasPendingCashForSchedule($scheduleId)
+            ? Model::fetchOne(
+                "SELECT * FROM payments WHERE schedule_id = ? AND payment_method = 'cash'
+                 AND verification_status IN ('pending','review') ORDER BY id DESC LIMIT 1",
+                [$scheduleId]
+            )
+            : null;
+
+        $this->view('collector/cash-payment', compact('schedule', 'amountDue', 'customerName', 'pendingPayment', 'collector'));
+    }
+
+    public function cashPaymentPost(): void
+    {
+        $user = $this->requireRole(['collector']);
+        $this->validateCsrf();
+        $collector = $this->collectorProfile($user);
+        if (!$collector) {
+            setFlash('error', 'Collector profile could not be loaded.');
+            redirect('collector/dashboard');
+        }
+
+        $scheduleId = (int) ($_POST['schedule_id'] ?? 0);
+        $zoneId = $this->zoneId($collector);
+        $schedule = CollectionModel::findForCollector($scheduleId, (int) $collector['id'], $zoneId);
+        if (!$schedule) {
+            setFlash('error', 'Collection not found or not assigned to you.');
+            redirect('collector/dashboard');
+        }
+
+        if (PaymentModel::hasPendingCashForSchedule($scheduleId)) {
+            setFlash('error', 'A cash payment for this collection is already pending verification.');
+            redirect('collector/cash-payment', ['schedule_id' => $scheduleId]);
+        }
+
+        $amountDue = (float) ($_POST['amount_due'] ?? 0);
+        $amountReceived = (float) ($_POST['amount_received'] ?? 0);
+
+        if ($amountReceived + 0.001 < $amountDue) {
+            setFlash('error', 'Amount received is less than the amount due.');
+            redirect('collector/cash-payment', ['schedule_id' => $scheduleId]);
+        }
+
+        if (empty($_FILES['evidence']['tmp_name'])) {
+            setFlash('error', 'Payment evidence photo is required.');
+            redirect('collector/cash-payment', ['schedule_id' => $scheduleId]);
+        }
+
+        $receipt = generateCashReceiptReference();
+        $invoiceNo = PaymentModel::hasCashColumns() ? generateInvoiceNumber() : null;
+
+        $paymentId = PaymentModel::submitCollectorCash([
+            'resident_id'          => (int) $schedule['resident_id'],
+            'amount'               => $amountDue,
+            'amount_due'           => $amountDue,
+            'amount_received'      => $amountReceived,
+            'payment_method'       => 'cash',
+            'payment_plan_id'      => null,
+            'status'               => 'pending',
+            'verification_status'  => 'pending',
+            'transaction_ref'      => 'CASH-' . strtoupper(substr(uniqid(), -8)),
+            'receipt_number'       => $receipt,
+            'invoice_number'       => $invoiceNo,
+            'paid_at'              => null,
+            'collector_id'         => (int) $collector['id'],
+            'schedule_id'          => $scheduleId,
+            'notes'                => $amountReceived > $amountDue
+                ? 'Change due: ' . formatCurrencyPlain($amountReceived - $amountDue)
+                : null,
+        ]);
+
+        $upload = savePaymentEvidenceUpload($paymentId, $_FILES['evidence']);
+        if (!$upload['ok']) {
+            Model::query('DELETE FROM payments WHERE id = ? AND status = ?', [$paymentId, 'pending']);
+            setFlash('error', $upload['error'] ?? 'Invalid payment evidence.');
+            redirect('collector/cash-payment', ['schedule_id' => $scheduleId]);
+        }
+
+        PaymentModel::updateEvidence($paymentId, $upload['path']);
+
+        $residentUserId = (int) Model::fetchOne('SELECT user_id FROM residents WHERE id = ?', [$schedule['resident_id']])['user_id'];
+        NotificationDispatcher::notify(
+            $residentUserId,
+            'Cash Payment Submitted',
+            'Cash payment of ' . formatCurrencyPlain($amountDue) . ' submitted by collector — pending verification. Ref: ' . $receipt,
+            'payment_confirmation',
+            false,
+            ['amount' => formatCurrencyPlain($amountDue), 'receipt' => $receipt]
+        );
+
+        logActivity((int) $user['id'], 'cash_payment_submitted', 'payments', [
+            'payment_id' => $paymentId,
+            'schedule_id' => $scheduleId,
+            'receipt' => $receipt,
+            'amount_received' => $amountReceived,
+        ]);
+
+        setFlash('success', 'Cash payment submitted — pending verification. Reference: ' . $receipt);
+        redirect('collector/payments');
+    }
+
     public function reports(): void
     {
         $this->requireRole(['collector']);

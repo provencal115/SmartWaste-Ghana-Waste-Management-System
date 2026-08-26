@@ -13,6 +13,7 @@ class Controller
 
     protected function view(string $view, array $data = [], string $layout = 'dashboard'): void
     {
+        sendUtf8HtmlHeaders();
         extract($data);
         $config = $this->config;
         $user = Auth::user();
@@ -28,10 +29,7 @@ class Controller
 
     protected function json(mixed $data, int $code = 200): void
     {
-        http_response_code($code);
-        header('Content-Type: application/json');
-        echo json_encode($data);
-        exit;
+        jsonResponse($data, $code);
     }
 
     protected function redirect(string $route, array $params = []): void

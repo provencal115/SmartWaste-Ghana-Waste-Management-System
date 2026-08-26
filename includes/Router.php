@@ -26,6 +26,7 @@ class Router
 
         if (!$handler) {
             http_response_code(404);
+            sendUtf8HtmlHeaders();
             require __DIR__ . '/../views/errors/404.php';
             return;
         }

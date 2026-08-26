@@ -38,7 +38,7 @@
 <script>
 Swal.fire({
     icon: '<?= $flash['type'] === 'error' ? 'error' : 'success' ?>',
-    title: '<?= addslashes($flash['message']) ?>',
+    title: <?= json_encode($flash['message'], JSON_UNESCAPED_UNICODE) ?>,
     toast: true, position: 'top-end', showConfirmButton: false, timer: 3500, timerProgressBar: true
 });
 </script>

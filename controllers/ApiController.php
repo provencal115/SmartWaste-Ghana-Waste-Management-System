@@ -42,24 +42,36 @@ class ApiController extends Controller
 
     public function receipt(): void
     {
+        if (empty($_GET['ref']) && !empty($_GET['no'])) {
+            $_GET['ref'] = $_GET['no'];
+        }
+        $this->invoice();
+    }
+
+    public function invoice(): void
+    {
         $user = Auth::requireLogin();
-        $receiptNo = $_GET['no'] ?? '';
-        $payment = Model::fetchOne('SELECT p.*, u.first_name, u.last_name FROM payments p JOIN residents r ON p.resident_id = r.id JOIN users u ON r.user_id = u.id WHERE p.receipt_number = ?', [$receiptNo]);
-        if (!$payment) {
-            setFlash('error', 'Receipt not found.');
+        $ref = trim($_GET['ref'] ?? $_GET['no'] ?? '');
+        if ($ref === '') {
+            setFlash('error', 'Invoice reference required.');
             redirect('home');
         }
-        // Simple HTML receipt (Dompdf can be added via composer)
-        header('Content-Type: text/html');
-        echo '<html><body style="font-family:sans-serif;padding:40px">';
-        echo '<h2>SmartWaste Payment Receipt</h2>';
-        echo '<p><strong>Receipt No:</strong> ' . e($payment['receipt_number']) . '</p>';
-        echo '<p><strong>Customer:</strong> ' . e($payment['first_name'] . ' ' . $payment['last_name']) . '</p>';
-        echo '<p><strong>Amount:</strong> ' . formatCurrency($payment['amount']) . '</p>';
-        echo '<p><strong>Method:</strong> ' . e($payment['payment_method']) . '</p>';
-        echo '<p><strong>Date:</strong> ' . formatDateTime($payment['paid_at'] ?? $payment['created_at']) . '</p>';
-        echo '<p><em>Thank you for your payment.</em></p>';
-        echo '</body></html>';
+
+        $payment = InvoiceService::findPaymentForInvoice($ref, $user);
+        if (!$payment) {
+            setFlash('error', 'Invoice not found or access denied.');
+            redirect('home');
+        }
+
+        $format = strtolower($_GET['format'] ?? 'html');
+        $filename = ($payment['invoice_number'] ?? $payment['receipt_number']) . '.pdf';
+
+        if ($format === 'pdf') {
+            InvoiceService::streamPdf($payment, $filename);
+            exit;
+        }
+
+        InvoiceService::outputHtml($payment);
         exit;
     }
 
@@ -120,7 +132,7 @@ class ApiController extends Controller
                 'Completed Collections' => $op['completed_collections'],
                 'Completion Rate' => $perf['completion_rate'] . '%',
                 'On-Time Rate' => $perf['on_time_rate'] . '%',
-                'Total Revenue' => formatCurrency($rev['total']),
+                'Total Revenue' => formatCurrencyPlain($rev['total']),
                 'Average Rating' => $sat['average'] . ' / 5',
             ] as $label => $val) {
                 $html .= '<tr><th>' . htmlspecialchars($label) . '</th><td>' . htmlspecialchars((string)$val) . '</td></tr>';
@@ -139,16 +151,18 @@ class ApiController extends Controller
             }
             $html .= '</table></body></html>';
 
+            $html = pdfSafeHtml($html);
+
             if (class_exists(\Dompdf\Dompdf::class)) {
-                $dompdf = new \Dompdf\Dompdf();
-                $dompdf->loadHtml($html);
+                $dompdf = dompdfInstance();
+                $dompdf->loadHtml($html, 'UTF-8');
                 $dompdf->setPaper('A4', 'portrait');
                 $dompdf->render();
                 $dompdf->stream($filename . '.pdf', ['Attachment' => true]);
                 exit;
             }
 
-            header('Content-Type: text/html');
+            sendUtf8HtmlHeaders();
             echo $html;
             exit;
         }

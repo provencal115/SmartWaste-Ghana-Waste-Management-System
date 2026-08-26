@@ -50,6 +50,18 @@ $sat = $analytics['satisfaction'] ?? [];
     ?>
 </div>
 
+<?php if (!empty($cashStats)): ?>
+<div class="row g-4 mb-4">
+    <?php
+    uiKpi('Cash — Pending', (int)($cashStats['pending'] ?? 0), 'fa-clock', 'warning', 'Awaiting verification', 0);
+    uiKpi('Cash — Verified', (int)($cashStats['approved'] ?? 0), 'fa-circle-check', 'success', 'Approved cash', 1);
+    uiKpi('Cash — Rejected', (int)($cashStats['rejected'] ?? 0), 'fa-ban', 'danger', 'Declined', 2);
+    uiKpi('Cash Revenue', formatCurrency($cashStats['revenue'] ?? 0), 'fa-money-bill-wave', 'info', 'Verified cash total', 3);
+    ?>
+    <div class="col-12 text-end"><a href="<?= baseUrl('admin/cash-payments') ?>" class="btn-saas btn-saas-sm btn-saas-outline">View Cash Payment Activity</a></div>
+</div>
+<?php endif; ?>
+
 <div class="row g-4 mb-4">
     <div class="col-lg-8">
         <div class="glass-card saas-card animate-in h-100">

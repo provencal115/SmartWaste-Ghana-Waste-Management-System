@@ -2,6 +2,7 @@
 
 <?php uiQuickActions([
     ['icon' => 'fa-money-bill-wave', 'label' => 'Payments', 'route' => 'finance/payments'],
+    ['icon' => 'fa-hand-holding-dollar', 'label' => 'Cash Verification', 'route' => 'finance/cash-payments'],
     ['icon' => 'fa-tags', 'label' => 'Pricing', 'route' => 'finance/pricing'],
     ['icon' => 'fa-file-export', 'label' => 'Reports', 'route' => 'finance/reports'],
 ]); ?>

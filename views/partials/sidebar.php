@@ -11,6 +11,7 @@ $nav = [
     'collector' => [
         ['icon' => 'fa-gauge-high', 'label' => 'Dashboard', 'route' => 'collector/dashboard'],
         ['icon' => 'fa-route', 'label' => 'Routes', 'route' => 'collector/routes'],
+        ['icon' => 'fa-receipt', 'label' => 'Payments', 'route' => 'collector/payments'],
         ['icon' => 'fa-qrcode', 'label' => 'Scan Bin', 'route' => 'collector/scan'],
         ['icon' => 'fa-triangle-exclamation', 'label' => 'Reports', 'route' => 'collector/reports'],
     ],
@@ -32,12 +33,14 @@ $nav = [
         ['icon' => 'fa-robot', 'label' => 'AI Assistant', 'route' => 'admin/chatbot'],
         ['icon' => 'fa-comment-sms', 'label' => 'SMS History', 'route' => 'admin/sms'],
         ['icon' => 'fa-file-export', 'label' => 'Reports', 'route' => 'admin/reports'],
+        ['icon' => 'fa-hand-holding-dollar', 'label' => 'Cash Payments', 'route' => 'admin/cash-payments'],
         ['icon' => 'fa-sliders', 'label' => 'Settings', 'route' => 'admin/settings'],
         ['icon' => 'fa-clock-rotate-left', 'label' => 'Audit Logs', 'route' => 'admin/logs'],
     ],
     'finance_manager' => [
         ['icon' => 'fa-gauge-high', 'label' => 'Dashboard', 'route' => 'finance/dashboard'],
         ['icon' => 'fa-money-bill-wave', 'label' => 'Payments', 'route' => 'finance/payments'],
+        ['icon' => 'fa-hand-holding-dollar', 'label' => 'Cash Verification', 'route' => 'finance/cash-payments'],
         ['icon' => 'fa-tags', 'label' => 'Pricing', 'route' => 'finance/pricing'],
         ['icon' => 'fa-chart-line', 'label' => 'Reports', 'route' => 'finance/reports'],
     ],

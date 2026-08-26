@@ -17,7 +17,21 @@ class AdminController extends Controller
         } catch (Throwable $e) {
             $inventoryAlerts = [];
         }
-        $this->view('admin/dashboard', compact('stats', 'collections', 'contactStats', 'routeStats', 'analytics', 'inventoryAlerts'));
+        $cashStats = PaymentModel::cashStats();
+        $this->view('admin/dashboard', compact('stats', 'collections', 'contactStats', 'routeStats', 'analytics', 'inventoryAlerts', 'cashStats'));
+    }
+
+    public function cashPayments(): void
+    {
+        $this->requireRole(['administrator']);
+        $filters = [
+            'status'    => trim($_GET['status'] ?? ''),
+            'date_from' => trim($_GET['date_from'] ?? ''),
+            'date_to'   => trim($_GET['date_to'] ?? ''),
+        ];
+        $stats = PaymentModel::cashStats($filters);
+        $payments = PaymentModel::cashPayments($filters);
+        $this->view('admin/cash-payments', compact('stats', 'payments', 'filters'));
     }
 
     public function analytics(): void

@@ -117,7 +117,7 @@ $completionRate = ($stats['today_total'] ?? 0) > 0
                 <td><?= statusBadge($p['pickup_status'] ?? $p['status']) ?></td>
                 <td><?= statusBadge($payStatus) ?></td>
                 <td>
-                    <button type="button" class="btn-saas btn-saas-ghost btn-saas-sm pickup-detail-btn"
+                    <button type="button" class="btn-saas btn-saas-ghost btn-saas-sm pickup-detail-btn me-1"
                             data-bs-toggle="modal" data-bs-target="#pickupDetailModal"
                             data-id="<?= (int)$p['id'] ?>"
                             data-resident="<?= e($p['first_name'] . ' ' . $p['last_name']) ?>"
@@ -133,6 +133,7 @@ $completionRate = ($stats['today_total'] ?? 0) > 0
                             data-collector-notes="<?= e($p['collector_notes'] ?? '') ?>">
                         <i class="fa-solid fa-eye"></i>
                     </button>
+                    <a href="<?= baseUrl('collector/cash-payment') ?>&schedule_id=<?= (int)$p['id'] ?>" class="btn-saas btn-saas-primary btn-saas-sm" title="Collect Cash"><i class="fa-solid fa-money-bill-wave"></i></a>
                 </td>
             </tr>
             <?php endforeach; ?>

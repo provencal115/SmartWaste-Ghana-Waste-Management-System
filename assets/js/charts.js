@@ -110,7 +110,7 @@ function renderLineChart(entry) {
                     callbacks: {
                         label(ctx) {
                             const val = ctx.parsed.y ?? 0;
-                            return ' GH₵ ' + Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            return ' GH\u20B5 ' + Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
                 }
@@ -187,7 +187,7 @@ function initRevenueTrendChart(canvasId, datasets, defaultPeriod = '30') {
 
     const render = (period) => {
         const set = datasets[period] || datasets['30'] || { labels: [], data: [] };
-        initLineChart(canvasId, set.labels, set.data, 'Revenue (GH₵)');
+        initLineChart(canvasId, set.labels, set.data, 'Revenue (GH\u20B5)');
     };
 
     wrap.querySelectorAll('[data-revenue-period]').forEach((btn) => {

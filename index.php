@@ -33,6 +33,7 @@ if (is_file(__DIR__ . '/vendor/autoload.php')) {
 require_once __DIR__ . '/includes/Mailer.php';
 require_once __DIR__ . '/includes/SmsService.php';
 require_once __DIR__ . '/includes/NotificationDispatcher.php';
+require_once __DIR__ . '/includes/InvoiceService.php';
 
 // Models
 foreach (glob(__DIR__ . '/models/*.php') as $model) {
@@ -86,6 +87,9 @@ $router->get('collector/routes', 'CollectorController@routes');
 $router->get('collector/scan', 'CollectorController@scan');
 $router->post('collector/scan', 'CollectorController@scanPost');
 $router->post('collector/pickup', 'CollectorController@updatePickup');
+$router->get('collector/payments', 'CollectorController@payments');
+$router->get('collector/cash-payment', 'CollectorController@cashPayment');
+$router->post('collector/cash-payment', 'CollectorController@cashPaymentPost');
 $router->get('collector/reports', 'CollectorController@reports');
 $router->post('collector/reports', 'CollectorController@reportsPost');
 
@@ -111,6 +115,7 @@ $router->get('admin/complaints', 'AdminController@complaints');
 $router->post('admin/complaints', 'AdminController@complaintsPost');
 $router->get('admin/reports', 'AdminController@reports');
 $router->get('admin/logs', 'AdminController@logs');
+$router->get('admin/cash-payments', 'AdminController@cashPayments');
 $router->get('admin/messages', 'AdminController@messages');
 $router->get('admin/messages/view', 'AdminController@messageView');
 $router->post('admin/messages', 'AdminController@messagesPost');
@@ -125,7 +130,9 @@ $router->post('admin/routes', 'AdminController@routesPost');
 // Finance
 $router->get('finance/dashboard', 'FinanceController@dashboard');
 $router->get('finance/payments', 'FinanceController@payments');
+$router->get('finance/cash-payments', 'FinanceController@cashPayments');
 $router->post('finance/verify', 'FinanceController@verifyCash');
+$router->post('finance/cash-verify', 'FinanceController@cashVerify');
 $router->get('finance/pricing', 'FinanceController@pricing');
 $router->post('finance/pricing', 'FinanceController@pricingPost');
 $router->get('finance/reports', 'FinanceController@reports');
@@ -134,6 +141,7 @@ $router->get('finance/reports', 'FinanceController@reports');
 $router->get('api/pricing', 'ApiController@pricing');
 $router->get('api/export', 'ApiController@export');
 $router->get('api/receipt', 'ApiController@receipt');
+$router->get('api/invoice', 'ApiController@invoice');
 $router->get('api/analytics/export', 'ApiController@analyticsExport');
 $router->get('api/chatbot/init', 'ChatbotController@init');
 $router->post('api/chatbot/send', 'ChatbotController@send');

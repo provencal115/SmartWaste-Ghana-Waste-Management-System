@@ -3,6 +3,73 @@
  * Global helper functions
  */
 
+function initAppEncoding(): void
+{
+    if (function_exists('mb_internal_encoding')) {
+        mb_internal_encoding('UTF-8');
+        mb_http_output('UTF-8');
+        mb_regex_encoding('UTF-8');
+    }
+    ini_set('default_charset', 'UTF-8');
+}
+
+function sendUtf8HtmlHeaders(): void
+{
+    if (!headers_sent()) {
+        header('Content-Type: text/html; charset=UTF-8');
+    }
+}
+
+function currencySymbolPlain(): string
+{
+    return "\u{20B5}";
+}
+
+/** Plain-text currency (SMS, email body, chatbot, CLI). */
+function formatCurrencyPlain(float $amount): string
+{
+    return 'GH' . currencySymbolPlain() . ' ' . number_format($amount, 2, '.', ',');
+}
+
+/** HTML-safe currency — displays as GH₵ in browsers and PDFs. */
+function formatCurrencyHtml(float $amount): string
+{
+    return 'GH&#8373; ' . number_format($amount, 2, '.', ',');
+}
+
+/** ASCII placeholder for empty table cells (avoids em-dash mojibake in PDF). */
+function emptyDisplay(): string
+{
+    return '-';
+}
+
+/**
+ * Normalize HTML for Dompdf — replace symbols/fonts may not render reliably.
+ */
+function pdfSafeHtml(string $html): string
+{
+    $map = [
+        "\xE2\x82\xB5" => '&#8373;',
+        "\xE2\x80\x94" => '-',
+        "\xE2\x80\x93" => '-',
+        "\xC2\xB7"     => ' | ',
+        "\xE2\x80\x99" => "'",
+        "\xE2\x80\x9C" => '"',
+        "\xE2\x80\x9D" => '"',
+    ];
+
+    return str_replace(array_keys($map), array_values($map), $html);
+}
+
+function dompdfInstance(): \Dompdf\Dompdf
+{
+    $options = new \Dompdf\Options();
+    $options->set('isRemoteEnabled', true);
+    $options->set('defaultFont', 'DejaVu Sans');
+
+    return new \Dompdf\Dompdf($options);
+}
+
 function e(string $str): string
 {
     return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
@@ -48,8 +115,8 @@ function isAjax(): bool
 function jsonResponse(mixed $data, int $code = 200): void
 {
     http_response_code($code);
-    header('Content-Type: application/json');
-    echo json_encode($data);
+    header('Content-Type: application/json; charset=UTF-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
 
@@ -69,18 +136,22 @@ function getFlash(): ?array
 
 function formatCurrency(float $amount): string
 {
-    return 'GH₵ ' . number_format($amount, 2);
+    return formatCurrencyPlain($amount);
 }
 
 function formatDate(?string $date): string
 {
-    if (!$date) return '—';
+    if (!$date) {
+        return emptyDisplay();
+    }
     return date('M j, Y', strtotime($date));
 }
 
 function formatDateTime(?string $date): string
 {
-    if (!$date) return '—';
+    if (!$date) {
+        return emptyDisplay();
+    }
     return date('M j, Y g:i A', strtotime($date));
 }
 
@@ -142,6 +213,145 @@ function generateToken(int $bytes = 16): string
 function generateReceiptNumber(): string
 {
     return 'RCP-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
+}
+
+/** Unique cash payment reference: SW-CASH-YYYYMMDD-#### */
+function generateCashReceiptReference(): string
+{
+    $prefix = 'SW-CASH-' . date('Ymd') . '-';
+    for ($i = 0; $i < 20; $i++) {
+        $ref = $prefix . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        $exists = Model::fetchOne('SELECT id FROM payments WHERE receipt_number = ? LIMIT 1', [$ref]);
+        if (!$exists) {
+            return $ref;
+        }
+    }
+    return $prefix . strtoupper(substr(uniqid(), -4));
+}
+
+/** Unique invoice number: SW-INV-YYYY-###### */
+function generateInvoiceNumber(): string
+{
+    $year = date('Y');
+    $prefix = 'SW-INV-' . $year . '-';
+    if (PaymentModel::hasCashColumns()) {
+        $row = Model::fetchOne(
+            "SELECT invoice_number FROM payments WHERE invoice_number LIKE ? ORDER BY invoice_number DESC LIMIT 1",
+            [$prefix . '%']
+        );
+        $seq = 1;
+        if ($row && preg_match('/-(\d+)$/', $row['invoice_number'], $m)) {
+            $seq = (int) $m[1] + 1;
+        }
+        return $prefix . str_pad((string) $seq, 6, '0', STR_PAD_LEFT);
+    }
+    return $prefix . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Validate and store cash payment evidence image.
+ *
+ * @return array{ok: bool, path?: string, error?: string}
+ */
+function savePaymentEvidenceUpload(int $paymentId, array $file): array
+{
+    $maxBytes = 3 * 1024 * 1024;
+
+    if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        return ['ok' => false, 'error' => 'Payment evidence photo is required.'];
+    }
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        return ['ok' => false, 'error' => 'Upload failed. Please try again.'];
+    }
+    if (($file['size'] ?? 0) > $maxBytes) {
+        return ['ok' => false, 'error' => 'Image must be 3 MB or smaller.'];
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : false;
+    if ($finfo) {
+        finfo_close($finfo);
+    }
+
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!$mime || !isset($allowed[$mime])) {
+        return ['ok' => false, 'error' => 'Only JPG, PNG, and WEBP images are allowed.'];
+    }
+
+    $dir = rtrim(appConfig()['upload_path'], '/\\') . '/payment-evidence';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        return ['ok' => false, 'error' => 'Could not create upload directory.'];
+    }
+
+    $filename = 'cash_' . $paymentId . '_' . time() . '.' . $allowed[$mime];
+    $fullPath = $dir . DIRECTORY_SEPARATOR . $filename;
+    if (!move_uploaded_file($file['tmp_name'], $fullPath)) {
+        return ['ok' => false, 'error' => 'Could not save image.'];
+    }
+
+    return ['ok' => true, 'path' => 'uploads/payment-evidence/' . $filename];
+}
+
+/** User-facing payment status label. */
+function paymentDisplayStatus(array $payment): string
+{
+    $method = $payment['payment_method'] ?? '';
+    $status = $payment['status'] ?? 'pending';
+    $vStatus = $payment['verification_status'] ?? 'none';
+
+    if ($method === 'cash') {
+        if ($vStatus === 'rejected' || $status === 'failed') {
+            return 'Rejected';
+        }
+        if ($vStatus === 'review') {
+            return 'Under Review';
+        }
+        if ($status === 'completed' || $vStatus === 'approved') {
+            return 'Paid';
+        }
+        if ($vStatus === 'pending' || $status === 'pending') {
+            return 'Pending Verification';
+        }
+    }
+
+    return match ($status) {
+        'completed' => 'Paid',
+        'pending'   => 'Pending',
+        'failed'    => 'Failed',
+        'overdue'   => 'Overdue',
+        'refunded'  => 'Refunded',
+        default     => ucwords(str_replace('_', ' ', $status)),
+    };
+}
+
+function paymentStatusBadge(array $payment): string
+{
+    $label = paymentDisplayStatus($payment);
+    $map = [
+        'Paid'                  => 'success',
+        'Pending Verification'  => 'warning',
+        'Under Review'          => 'info',
+        'Rejected'              => 'danger',
+        'Pending'               => 'warning',
+        'Failed'                => 'danger',
+        'Overdue'               => 'danger',
+        'Refunded'              => 'secondary',
+    ];
+    $class = $map[$label] ?? 'secondary';
+    return '<span class="status-pill status-' . $class . '"><span class="status-dot"></span>' . e($label) . '</span>';
+}
+
+function paymentEvidenceUrl(?string $path): ?string
+{
+    if (!$path) {
+        return null;
+    }
+    $full = dirname(__DIR__) . '/assets/' . ltrim($path, '/');
+    return is_file($full) ? asset($path) : null;
 }
 
 function generateBinCode(string $size, string $color): string
@@ -357,3 +567,5 @@ function saveUserAvatarUpload(int $userId, array $file): array
 
     return ['ok' => true, 'path' => 'uploads/avatars/' . $filename];
 }
+
+initAppEncoding();

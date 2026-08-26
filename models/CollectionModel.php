@@ -270,13 +270,102 @@ class CollectionModel extends Model
 
 class PaymentModel extends Model
 {
+    public static function hasCashColumns(): bool
+    {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+        try {
+            $has = self::fetchOne("SHOW COLUMNS FROM payments LIKE 'verification_status'") !== null;
+        } catch (Throwable) {
+            $has = false;
+        }
+        return $has;
+    }
+
     public static function create(array $data): int
     {
-        self::query(
-            'INSERT INTO payments (resident_id, amount, payment_method, payment_plan_id, status, transaction_ref, receipt_number, paid_at, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$data['resident_id'], $data['amount'], $data['payment_method'], $data['payment_plan_id'] ?? null, $data['status'], $data['transaction_ref'], $data['receipt_number'], $data['paid_at'] ?? null, $data['due_date'] ?? null]
-        );
+        if (self::hasCashColumns()) {
+            self::query(
+                'INSERT INTO payments (resident_id, amount, amount_due, amount_received, payment_method, payment_plan_id, status, verification_status, transaction_ref, receipt_number, invoice_number, paid_at, due_date, collector_id, schedule_id, evidence_url, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    $data['resident_id'],
+                    $data['amount'],
+                    $data['amount_due'] ?? $data['amount'],
+                    $data['amount_received'] ?? null,
+                    $data['payment_method'],
+                    $data['payment_plan_id'] ?? null,
+                    $data['status'],
+                    $data['verification_status'] ?? 'none',
+                    $data['transaction_ref'],
+                    $data['receipt_number'],
+                    $data['invoice_number'] ?? null,
+                    $data['paid_at'] ?? null,
+                    $data['due_date'] ?? null,
+                    $data['collector_id'] ?? null,
+                    $data['schedule_id'] ?? null,
+                    $data['evidence_url'] ?? null,
+                    $data['notes'] ?? null,
+                ]
+            );
+        } else {
+            self::query(
+                'INSERT INTO payments (resident_id, amount, payment_method, payment_plan_id, status, transaction_ref, receipt_number, paid_at, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$data['resident_id'], $data['amount'], $data['payment_method'], $data['payment_plan_id'] ?? null, $data['status'], $data['transaction_ref'], $data['receipt_number'], $data['paid_at'] ?? null, $data['due_date'] ?? null]
+            );
+        }
         return (int) self::lastInsertId();
+    }
+
+    public static function findById(int $id): ?array
+    {
+        return self::fetchOne('SELECT * FROM payments WHERE id = ?', [$id]);
+    }
+
+    public static function findDetailed(int $id): ?array
+    {
+        return self::fetchOne(
+            'SELECT p.*, u.first_name, u.last_name, u.email, u.phone,
+                    r.address, r.city, r.gps_lat, r.gps_lng, r.id AS resident_pk,
+                    r.selected_bin_size, r.outstanding_balance,
+                    cu.first_name AS collector_first, cu.last_name AS collector_last,
+                    col.employee_id AS collector_employee_id,
+                    cs.preferred_date AS collection_date, cs.preferred_time AS collection_time,
+                    vu.first_name AS verifier_first, vu.last_name AS verifier_last
+             FROM payments p
+             JOIN residents r ON p.resident_id = r.id
+             JOIN users u ON r.user_id = u.id
+             LEFT JOIN collectors col ON p.collector_id = col.id
+             LEFT JOIN users cu ON col.user_id = cu.id
+             LEFT JOIN collection_schedules cs ON p.schedule_id = cs.id
+             LEFT JOIN users vu ON p.verified_by = vu.id
+             WHERE p.id = ?',
+            [$id]
+        );
+    }
+
+    public static function findDetailedByReference(string $reference): ?array
+    {
+        return self::fetchOne(
+            'SELECT p.*, u.first_name, u.last_name, u.email, u.phone,
+                    r.address, r.city, r.gps_lat, r.gps_lng, r.id AS resident_pk,
+                    r.selected_bin_size, r.outstanding_balance,
+                    cu.first_name AS collector_first, cu.last_name AS collector_last,
+                    col.employee_id AS collector_employee_id,
+                    cs.preferred_date AS collection_date, cs.preferred_time AS collection_time,
+                    vu.first_name AS verifier_first, vu.last_name AS verifier_last
+             FROM payments p
+             JOIN residents r ON p.resident_id = r.id
+             JOIN users u ON r.user_id = u.id
+             LEFT JOIN collectors col ON p.collector_id = col.id
+             LEFT JOIN users cu ON col.user_id = cu.id
+             LEFT JOIN collection_schedules cs ON p.schedule_id = cs.id
+             LEFT JOIN users vu ON p.verified_by = vu.id
+             WHERE p.receipt_number = ? OR p.invoice_number = ?
+             LIMIT 1',
+            [$reference, $reference]
+        );
     }
 
     public static function forResident(int $residentId): array
@@ -284,20 +373,258 @@ class PaymentModel extends Model
         return self::fetchAll('SELECT * FROM payments WHERE resident_id = ? ORDER BY created_at DESC', [$residentId]);
     }
 
+    public static function forCollector(int $collectorId): array
+    {
+        if (!self::hasCashColumns()) {
+            return [];
+        }
+        return self::fetchAll(
+            'SELECT p.*, u.first_name, u.last_name, cs.preferred_date
+             FROM payments p
+             JOIN residents r ON p.resident_id = r.id
+             JOIN users u ON r.user_id = u.id
+             LEFT JOIN collection_schedules cs ON p.schedule_id = cs.id
+             WHERE p.collector_id = ?
+             ORDER BY p.created_at DESC',
+            [$collectorId]
+        );
+    }
+
+    public static function pendingCashVerification(?array $filters = null): array
+    {
+        if (!self::hasCashColumns()) {
+            return self::fetchAll(
+                "SELECT p.*, u.first_name, u.last_name, u.email FROM payments p
+                 JOIN residents r ON p.resident_id = r.id JOIN users u ON r.user_id = u.id
+                 WHERE p.payment_method = 'cash' AND p.status = 'pending' ORDER BY p.created_at DESC"
+            );
+        }
+
+        $sql = "SELECT p.*, u.first_name, u.last_name, u.email, u.phone,
+                       cu.first_name AS collector_first, cu.last_name AS collector_last,
+                       col.employee_id
+                FROM payments p
+                JOIN residents r ON p.resident_id = r.id
+                JOIN users u ON r.user_id = u.id
+                LEFT JOIN collectors col ON p.collector_id = col.id
+                LEFT JOIN users cu ON col.user_id = cu.id
+                WHERE p.payment_method = 'cash' AND p.verification_status = 'pending'";
+
+        $params = [];
+        if (!empty($filters['status']) && $filters['status'] !== 'pending') {
+            $sql = str_replace("p.verification_status = 'pending'", 'p.verification_status = ?', $sql);
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['collector_id'])) {
+            $sql .= ' AND p.collector_id = ?';
+            $params[] = (int) $filters['collector_id'];
+        }
+        if (!empty($filters['resident_id'])) {
+            $sql .= ' AND p.resident_id = ?';
+            $params[] = (int) $filters['resident_id'];
+        }
+        if (!empty($filters['date_from'])) {
+            $sql .= ' AND DATE(p.created_at) >= ?';
+            $params[] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $sql .= ' AND DATE(p.created_at) <= ?';
+            $params[] = $filters['date_to'];
+        }
+
+        $sql .= ' ORDER BY p.created_at DESC';
+        return self::fetchAll($sql, $params);
+    }
+
+    public static function cashPayments(?array $filters = null): array
+    {
+        if (!self::hasCashColumns()) {
+            return self::all();
+        }
+
+        $sql = "SELECT p.*, u.first_name, u.last_name, u.email,
+                       cu.first_name AS collector_first, cu.last_name AS collector_last
+                FROM payments p
+                JOIN residents r ON p.resident_id = r.id
+                JOIN users u ON r.user_id = u.id
+                LEFT JOIN collectors col ON p.collector_id = col.id
+                LEFT JOIN users cu ON col.user_id = cu.id
+                WHERE p.payment_method = 'cash'";
+        $params = [];
+
+        if (!empty($filters['status'])) {
+            $sql .= ' AND p.verification_status = ?';
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['date_from'])) {
+            $sql .= ' AND DATE(p.created_at) >= ?';
+            $params[] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $sql .= ' AND DATE(p.created_at) <= ?';
+            $params[] = $filters['date_to'];
+        }
+        if (!empty($filters['collector_id'])) {
+            $sql .= ' AND p.collector_id = ?';
+            $params[] = (int) $filters['collector_id'];
+        }
+
+        $sql .= ' ORDER BY p.created_at DESC LIMIT 500';
+        return self::fetchAll($sql, $params);
+    }
+
+    /** @return array<string, mixed> */
+    public static function cashStats(?array $filters = null): array
+    {
+        if (!self::hasCashColumns()) {
+            return [
+                'total' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0,
+                'review' => 0, 'revenue' => 0.0,
+            ];
+        }
+
+        $where = "payment_method = 'cash'";
+        $params = [];
+        if (!empty($filters['date_from'])) {
+            $where .= ' AND DATE(created_at) >= ?';
+            $params[] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $where .= ' AND DATE(created_at) <= ?';
+            $params[] = $filters['date_to'];
+        }
+
+        $rows = self::fetchAll(
+            "SELECT verification_status, status, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total
+             FROM payments WHERE {$where} GROUP BY verification_status, status",
+            $params
+        );
+
+        $stats = [
+            'total' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0,
+            'review' => 0, 'revenue' => 0.0,
+        ];
+        foreach ($rows as $row) {
+            $stats['total'] += (int) $row['cnt'];
+            $vs = $row['verification_status'];
+            if ($vs === 'pending') {
+                $stats['pending'] += (int) $row['cnt'];
+            } elseif ($vs === 'approved' || ($row['status'] === 'completed' && $vs === 'none')) {
+                $stats['approved'] += (int) $row['cnt'];
+                $stats['revenue'] += (float) $row['total'];
+            } elseif ($vs === 'rejected') {
+                $stats['rejected'] += (int) $row['cnt'];
+            } elseif ($vs === 'review') {
+                $stats['review'] += (int) $row['cnt'];
+            }
+        }
+
+        return $stats;
+    }
+
+    public static function hasPendingCashForSchedule(int $scheduleId): bool
+    {
+        if (!self::hasCashColumns()) {
+            return false;
+        }
+        $row = self::fetchOne(
+            "SELECT id FROM payments WHERE schedule_id = ? AND payment_method = 'cash'
+             AND verification_status IN ('pending','review') LIMIT 1",
+            [$scheduleId]
+        );
+        return $row !== null;
+    }
+
+    public static function submitCollectorCash(array $data): int
+    {
+        $paymentId = self::create($data);
+        return $paymentId;
+    }
+
+    public static function updateEvidence(int $paymentId, string $path): void
+    {
+        if (!self::hasCashColumns()) {
+            return;
+        }
+        self::query('UPDATE payments SET evidence_url = ? WHERE id = ?', [$path, $paymentId]);
+    }
+
     public static function all(?string $status = null): array
     {
         $sql = 'SELECT p.*, u.first_name, u.last_name, u.email FROM payments p JOIN residents r ON p.resident_id = r.id JOIN users u ON r.user_id = u.id';
-        if ($status) return self::fetchAll($sql . ' WHERE p.status = ? ORDER BY p.created_at DESC', [$status]);
+        if ($status) {
+            return self::fetchAll($sql . ' WHERE p.status = ? ORDER BY p.created_at DESC', [$status]);
+        }
         return self::fetchAll($sql . ' ORDER BY p.created_at DESC');
     }
 
     public static function verifyCash(int $paymentId, int $verifiedBy): void
     {
-        self::query("UPDATE payments SET status = 'completed', verified_by = ?, paid_at = NOW() WHERE id = ? AND payment_method = 'cash'", [$verifiedBy, $paymentId]);
-        $payment = Model::fetchOne('SELECT resident_id, amount FROM payments WHERE id = ?', [$paymentId]);
-        if ($payment) {
-            self::query('UPDATE residents SET outstanding_balance = GREATEST(0, outstanding_balance - ?) WHERE id = ?', [$payment['amount'], $payment['resident_id']]);
+        self::processVerification($paymentId, 'approve', $verifiedBy, null);
+    }
+
+    public static function processVerification(int $paymentId, string $action, int $verifiedBy, ?string $notes = null): bool
+    {
+        $payment = self::findById($paymentId);
+        if (!$payment || ($payment['payment_method'] ?? '') !== 'cash') {
+            return false;
         }
+
+        $vStatus = self::hasCashColumns() ? ($payment['verification_status'] ?? 'none') : 'none';
+        $canProcess = self::hasCashColumns()
+            ? in_array($vStatus, ['pending', 'review'], true) || ($payment['status'] === 'pending' && $vStatus === 'none')
+            : ($payment['status'] === 'pending');
+
+        if (!$canProcess) {
+            return false;
+        }
+
+        if ($action === 'approve') {
+            $amount = (float) ($payment['amount_received'] ?? $payment['amount']);
+            if (self::hasCashColumns()) {
+                self::query(
+                    "UPDATE payments SET status = 'completed', verification_status = 'approved',
+                     verified_by = ?, verified_at = NOW(), paid_at = NOW(), verification_notes = ?
+                     WHERE id = ? AND payment_method = 'cash'",
+                    [$verifiedBy, $notes, $paymentId]
+                );
+            } else {
+                self::query(
+                    "UPDATE payments SET status = 'completed', verified_by = ?, paid_at = NOW() WHERE id = ? AND payment_method = 'cash'",
+                    [$verifiedBy, $paymentId]
+                );
+            }
+            self::query(
+                'UPDATE residents SET outstanding_balance = GREATEST(0, outstanding_balance - ?) WHERE id = ?',
+                [$amount, $payment['resident_id']]
+            );
+            return true;
+        }
+
+        if (!self::hasCashColumns()) {
+            return false;
+        }
+
+        if ($action === 'reject') {
+            self::query(
+                "UPDATE payments SET status = 'failed', verification_status = 'rejected',
+                 verified_by = ?, verified_at = NOW(), verification_notes = ?
+                 WHERE id = ? AND payment_method = 'cash'",
+                [$verifiedBy, $notes, $paymentId]
+            );
+            return true;
+        }
+
+        if ($action === 'review') {
+            self::query(
+                "UPDATE payments SET verification_status = 'review', verification_notes = ?
+                 WHERE id = ? AND payment_method = 'cash'",
+                [$notes, $paymentId]
+            );
+            return true;
+        }
+
+        return false;
     }
 
     /** Sum of all completed (successful) payments — excludes pending, failed, refunded. */

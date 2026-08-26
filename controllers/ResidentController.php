@@ -63,17 +63,23 @@ class ResidentController extends Controller
         $resident = ResidentModel::getByUserId($user['id']);
         $amount = (float)($_POST['amount'] ?? $resident['service_fee']);
         $method = $_POST['payment_method'] ?? 'mobile_money';
-        $status = $method === 'cash' ? 'pending' : 'completed';
-        $receipt = generateReceiptNumber();
+        $isCash = $method === 'cash';
+        $status = $isCash ? 'pending' : 'completed';
+        $receipt = $isCash ? generateCashReceiptReference() : generateReceiptNumber();
+        $invoiceNo = PaymentModel::hasCashColumns() ? generateInvoiceNumber() : null;
 
         PaymentModel::create([
             'resident_id' => $resident['id'],
             'amount' => $amount,
+            'amount_due' => $amount,
             'payment_method' => $method,
             'status' => $status,
+            'verification_status' => $isCash ? 'pending' : 'none',
             'transaction_ref' => 'TXN-' . strtoupper(uniqid()),
             'receipt_number' => $receipt,
+            'invoice_number' => $invoiceNo,
             'paid_at' => $status === 'completed' ? date('Y-m-d H:i:s') : null,
+            'payment_plan_id' => $resident['payment_plan_id'] ?? null,
         ]);
 
         if ($status === 'completed') {
@@ -81,13 +87,16 @@ class ResidentController extends Controller
         }
         NotificationDispatcher::notify(
             $user['id'],
-            'Payment ' . ucfirst($status),
-            formatCurrency($amount) . ' via ' . $method . '. Receipt: ' . $receipt,
+            $isCash ? 'Cash Payment Pending' : 'Payment ' . ucfirst($status),
+            $isCash
+                ? formatCurrencyPlain($amount) . ' cash payment submitted — pending verification. Ref: ' . $receipt
+                : formatCurrencyPlain($amount) . ' via ' . $method . '. Receipt: ' . $receipt,
             'payment_confirmation',
             $status === 'completed',
-            ['amount' => formatCurrency($amount), 'receipt' => $receipt]
+            ['amount' => formatCurrencyPlain($amount), 'receipt' => $receipt]
         );
-        setFlash('success', 'Payment processed. Receipt: ' . $receipt);
+        logActivity((int) $user['id'], $isCash ? 'cash_payment_requested' : 'payment_completed', 'payments', ['receipt' => $receipt, 'method' => $method]);
+        setFlash('success', $isCash ? 'Cash payment recorded — pending verification. Reference: ' . $receipt : 'Payment processed. Receipt: ' . $receipt);
         redirect('resident/payments');
     }
 

@@ -340,15 +340,15 @@ class ChatbotEngine
         }
 
         if (!$rows) {
-            return "• Small (120L): Weekly GH₵15 · Bi-weekly GH₵28 · Monthly GH₵50\n"
-                . "• Medium (240L): Weekly GH₵25 · Bi-weekly GH₵48 · Monthly GH₵90\n"
-                . "• Large (360L): Weekly GH₵40 · Bi-weekly GH₵75 · Monthly GH₵140";
+            return '• Small (120L): Weekly ' . formatCurrencyPlain(15) . ' · Bi-weekly ' . formatCurrencyPlain(28) . ' · Monthly ' . formatCurrencyPlain(50) . "\n"
+                . '• Medium (240L): Weekly ' . formatCurrencyPlain(25) . ' · Bi-weekly ' . formatCurrencyPlain(48) . ' · Monthly ' . formatCurrencyPlain(90) . "\n"
+                . '• Large (360L): Weekly ' . formatCurrencyPlain(40) . ' · Bi-weekly ' . formatCurrencyPlain(75) . ' · Monthly ' . formatCurrencyPlain(140);
         }
 
         $grouped = [];
         foreach ($rows as $row) {
             $size = ucfirst((string)$row['bin_size']) . ' (' . binCapacity($row['bin_size']) . 'L)';
-            $grouped[$size][] = $row['plan_name'] . ' ' . formatCurrency((float)$row['price']);
+            $grouped[$size][] = $row['plan_name'] . ' ' . formatCurrencyPlain((float)$row['price']);
         }
 
         $lines = [];

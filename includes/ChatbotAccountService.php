@@ -138,12 +138,12 @@ class ChatbotAccountService
         if ($overdue) {
             $total = array_sum(array_map(fn ($p) => (float)$p['amount'], $overdue));
             return 'Your account currently has ' . count($overdue) . ' overdue payment(s) totalling '
-                . formatCurrency($total) . ".\n\nPay now: " . baseUrl('resident/payments');
+                . formatCurrencyPlain($total) . ".\n\nPay now: " . baseUrl('resident/payments');
         }
 
         $balance = (float)($resident['outstanding_balance'] ?? 0);
         if ($balance > 0) {
-            return 'Your outstanding balance is ' . formatCurrency($balance) . ".\n\nPay here: " . baseUrl('resident/payments');
+            return 'Your outstanding balance is ' . formatCurrencyPlain($balance) . ".\n\nPay here: " . baseUrl('resident/payments');
         }
 
         return "Your account is up to date — no overdue payments.\n\nPayments: " . baseUrl('resident/payments');
@@ -158,11 +158,11 @@ class ChatbotAccountService
 
         $msg = "Your service is on the {$plan} plan for a {$liters}L bin.";
         if ($fee > 0) {
-            $msg .= ' Registered fee: ' . formatCurrency($fee) . '.';
+            $msg .= ' Registered fee: ' . formatCurrencyPlain($fee) . '.';
         }
         $balance = (float)($resident['outstanding_balance'] ?? 0);
         if ($balance > 0) {
-            $msg .= ' Outstanding: ' . formatCurrency($balance) . '.';
+            $msg .= ' Outstanding: ' . formatCurrencyPlain($balance) . '.';
         }
         return $msg . "\n\nPayments: " . baseUrl('resident/payments');
     }
@@ -176,7 +176,7 @@ class ChatbotAccountService
 
         $lines = ['Your recent payments:'];
         foreach ($payments as $p) {
-            $lines[] = '• ' . formatCurrency((float)$p['amount']) . ' — ' . ucfirst((string)$p['status'])
+            $lines[] = '• ' . formatCurrencyPlain((float)$p['amount']) . ' — ' . ucfirst((string)$p['status'])
                 . ' (' . formatDate($p['paid_at'] ?? $p['created_at']) . ')';
         }
         $lines[] = "\nFull history: " . baseUrl('resident/payments');
