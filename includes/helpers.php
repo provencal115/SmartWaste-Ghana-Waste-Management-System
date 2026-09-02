@@ -126,6 +126,12 @@ function setFlash(string $type, string $message): void
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
 }
 
+function setFlashStructured(string $type, string $title, string $message): void
+{
+    Auth::start();
+    $_SESSION['flash'] = ['type' => $type, 'title' => $title, 'message' => $message];
+}
+
 function getFlash(): ?array
 {
     Auth::start();

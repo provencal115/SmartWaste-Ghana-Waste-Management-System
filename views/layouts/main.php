@@ -27,7 +27,22 @@
     <script src="<?= asset('js/password-field.js') ?>"></script>
     <script src="<?= asset('js/main.js') ?>"></script>
     <?php if ($flash): ?>
-    <script>Swal.fire({ icon: '<?= $flash['type'] === 'error' ? 'error' : 'success' ?>', title: <?= json_encode($flash['message'], JSON_UNESCAPED_UNICODE) ?>, toast: true, position: 'top-end', showConfirmButton: false, timer: 3500 });</script>
+    <script>
+    Swal.fire({
+        icon: '<?= $flash['type'] === 'error' ? 'error' : 'success' ?>',
+        <?php if (!empty($flash['title'])): ?>
+        title: <?= json_encode($flash['title'], JSON_UNESCAPED_UNICODE) ?>,
+        text: <?= json_encode($flash['message'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+        <?php else: ?>
+        title: <?= json_encode($flash['message'], JSON_UNESCAPED_UNICODE) ?>,
+        <?php endif; ?>
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4500,
+        timerProgressBar: true
+    });
+    </script>
     <?php endif; ?>
     <?php require __DIR__ . '/../partials/chatbot.php'; ?>
 </body>

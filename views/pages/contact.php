@@ -31,15 +31,29 @@
                 <div class="corp-form-card glass-card">
                     <h4 class="fw-bold mb-1">Send us a message</h4>
                     <p class="text-secondary small mb-4">Fill in the form below and our team will respond within one business day.</p>
-                    <form method="POST" action="<?= baseUrl('contact') ?>" class="saas-form">
+                    <?php if (!empty($showContactSuccess)): ?>
+                    <div class="contact-success-banner mb-4" role="status" aria-live="polite">
+                        <div class="contact-success-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+                        <div>
+                            <strong class="d-block">Thank you! Your message has been received.</strong>
+                            <span class="text-secondary small">Our team will review it and respond shortly.</span>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <form method="POST" action="<?= baseUrl('contact') ?>" class="saas-form" id="contactForm" novalidate>
                         <?= Csrf::field() ?>
+                        <?= Csrf::submissionField('contact') ?>
                         <div class="row g-3">
-                            <div class="col-md-6"><label class="form-label">Full Name <span class="text-danger">*</span></label><input type="text" name="full_name" class="form-control" required value="<?= e($_POST['full_name'] ?? '') ?>"></div>
-                            <div class="col-md-6"><label class="form-label">Email <span class="text-danger">*</span></label><input type="email" name="email" class="form-control" required value="<?= e($_POST['email'] ?? '') ?>"></div>
-                            <div class="col-12"><label class="form-label">Phone Number</label><input type="tel" name="phone" class="form-control" placeholder="+233..." value="<?= e($_POST['phone'] ?? '') ?>"></div>
-                            <div class="col-12"><label class="form-label">Subject <span class="text-danger">*</span></label><input type="text" name="subject" class="form-control" required value="<?= e($_POST['subject'] ?? '') ?>"></div>
-                            <div class="col-12"><label class="form-label">Message <span class="text-danger">*</span></label><textarea name="message" class="form-control" rows="5" required><?= e($_POST['message'] ?? '') ?></textarea></div>
-                            <div class="col-12"><button type="submit" class="btn-saas btn-saas-primary w-100 justify-content-center btn-saas-lg"><i class="fa-solid fa-paper-plane"></i> Send Message</button></div>
+                            <div class="col-md-6"><label class="form-label">Full Name <span class="text-danger">*</span></label><input type="text" name="full_name" class="form-control" required autocomplete="name"></div>
+                            <div class="col-md-6"><label class="form-label">Email <span class="text-danger">*</span></label><input type="email" name="email" class="form-control" required autocomplete="email"></div>
+                            <div class="col-12"><label class="form-label">Phone Number</label><input type="tel" name="phone" class="form-control" placeholder="+233..." autocomplete="tel"></div>
+                            <div class="col-12"><label class="form-label">Subject <span class="text-danger">*</span></label><input type="text" name="subject" class="form-control" required></div>
+                            <div class="col-12"><label class="form-label">Message <span class="text-danger">*</span></label><textarea name="message" class="form-control" rows="5" required></textarea></div>
+                            <div class="col-12">
+                                <button type="submit" class="btn-saas btn-saas-primary w-100 justify-content-center btn-saas-lg" id="contactSubmitBtn">
+                                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send Message
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -56,4 +70,5 @@
 </section>
 </main>
 
+<script src="<?= asset('js/contact-form.js') ?>"></script>
 <?php require __DIR__ . '/../partials/footer.php'; ?>
