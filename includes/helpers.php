@@ -87,7 +87,23 @@ function redirect(string $route, array $params = []): void
 
 function baseUrl(string $path = ''): string
 {
-    return rtrim(appConfig()['url'], '/') . '/index.php?url=' . ltrim($path, '/');
+    return rtrim(publicBaseUrl(), '/') . '/index.php?url=' . ltrim($path, '/');
+}
+
+/** Base URL for links in emails and external notifications (no /scripts paths). */
+function publicBaseUrl(): string
+{
+    $url = rtrim((string) (appConfig()['url'] ?? ''), '/');
+    if ($url === '') {
+        return 'http://localhost';
+    }
+
+    if (str_contains($url, '/scripts')) {
+        $url = preg_replace('#/scripts(?:/[^/]*)?$#', '', $url) ?? $url;
+        $url = str_replace('/scripts/', '/', $url);
+    }
+
+    return rtrim($url, '/');
 }
 
 function asset(string $path): string

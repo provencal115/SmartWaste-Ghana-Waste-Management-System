@@ -26,8 +26,13 @@ return [
         'host'       => 'smtp.gmail.com',
         'port'       => 587,
         'encryption' => 'tls',
-        'username'   => 'isaacprovencal7@gmail.com', // e.g. yourname@gmail.com
-        'password'   => 'syjr kcps fimc ywtd', // Gmail App Password (not your login password)
+        // Used automatically if port 587 is blocked (common on some Windows/XAMPP setups)
+        'alternate'  => [
+            'port'       => 465,
+            'encryption' => 'ssl',
+        ],
+        'username'   => 'isaacprovencal7@gmail.com',
+        'password'   => '',
     ],
 
     'welcome' => [
@@ -35,9 +40,10 @@ return [
     ],
 
     'contact' => [
-        'admin_notify_email' => 'admin@smartwaste.gh',
+        'admin_notify_email' => 'isaacprovencal7@gmail.com',
         'admin_notify_subject' => 'New Contact Message — Smart Waste Management Ghana',
-        'customer_confirm_subject' => "We've Received Your Message – Smart Waste Management Ghana",
+        'customer_confirm_subject' => 'We Have Received Your Message – Smart Waste Management Ghana',
         'reply_subject_prefix' => 'Re: ',
+        'reply_subject_suffix' => ' – Smart Waste Management Ghana',
     ],
 ];

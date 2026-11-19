@@ -387,38 +387,67 @@ class AdminController extends Controller
 
     private function handleContactReply(array $user): void
     {
+        $submission = Csrf::validateSubmission('admin_contact_reply', trim($_POST['submission_token'] ?? ''));
+        if ($submission === 'duplicate') {
+            setFlash('success', 'This reply was already sent. No duplicate email was delivered.');
+            return;
+        }
+        if ($submission === 'invalid') {
+            throw new InvalidArgumentException('Your session expired. Please open the reply form again and resend.');
+        }
+
         $id = (int) ($_POST['message_id'] ?? 0);
         $replyBody = mb_substr(strip_tags(trim($_POST['reply_body'] ?? '')), 0, 5000);
 
+        if ($id <= 0) {
+            throw new InvalidArgumentException('Invalid message.');
+        }
         if ($replyBody === '') {
             throw new InvalidArgumentException('Reply message is required.');
         }
 
-        $message = ContactMessageModel::find($id);
+        $contactRow = ContactMessageModel::find($id);
+        if (!$contactRow) {
+            throw new InvalidArgumentException('Message not found.');
+        }
+
+        $visitorEmail = trim($contactRow['email'] ?? '');
+        if ($visitorEmail === '' || !filter_var($visitorEmail, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('This message has no valid visitor email address.');
+        }
+
+        $message = ContactMessageModel::findWithReplies($id);
         if (!$message) {
             throw new InvalidArgumentException('Message not found.');
         }
+        $message['email'] = $visitorEmail;
 
         $adminName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
         if ($adminName === '') {
             $adminName = 'Smart Waste Management Support';
         }
 
-        $emailSent = false;
-        try {
-            $emailSent = Mailer::sendContactReply($message, $replyBody, $adminName);
-        } catch (Throwable) {
-            $emailSent = false;
-        }
+        $emailSent = Mailer::sendContactReply($message, $replyBody, $adminName);
+        $smtpError = $emailSent ? null : Mailer::lastSmtpError();
 
         ContactMessageModel::addReply($id, (int) $user['id'], $replyBody, $emailSent);
 
-        logActivity((int) $user['id'], 'contact_reply', 'admin', ['message_id' => $id, 'email_sent' => $emailSent]);
+        logActivity((int) $user['id'], 'contact_reply', 'admin', [
+            'message_id'    => $id,
+            'email_sent'    => $emailSent,
+            'visitor_email' => $visitorEmail,
+            'smtp_error'    => $smtpError,
+        ]);
 
         if ($emailSent) {
-            setFlash('success', 'Reply sent successfully and message marked as replied.');
+            setFlash('success', 'Reply emailed to ' . $visitorEmail . ' and saved in message history.');
         } else {
-            setFlash('success', 'Reply saved. Email could not be sent — check SMTP settings or copy the response to the customer manually.');
+            $detail = $smtpError ? ' SMTP: ' . mb_substr($smtpError, 0, 200) : '';
+            setFlash(
+                'warning',
+                'Reply saved in the dashboard but could not be emailed to ' . $visitorEmail . '.' . $detail
+                . ' You can copy the reply and contact the customer manually.'
+            );
         }
     }
 

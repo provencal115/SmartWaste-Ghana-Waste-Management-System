@@ -3,6 +3,8 @@
  * Manual test: php scripts/test_contact_confirmation_email.php your@email.com
  */
 require dirname(__DIR__) . '/includes/AppConfig.php';
+require dirname(__DIR__) . '/includes/Model.php';
+require dirname(__DIR__) . '/models/PricingModel.php';
 require dirname(__DIR__) . '/includes/helpers.php';
 require dirname(__DIR__) . '/includes/images.php';
 require dirname(__DIR__) . '/vendor/autoload.php';

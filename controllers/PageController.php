@@ -4,8 +4,7 @@ require_once __DIR__ . '/../includes/pages.php';
 
 class PageController extends Controller
 {
-    private const CONTACT_SUCCESS_TITLE = 'Message sent successfully!';
-    private const CONTACT_SUCCESS_MESSAGE = 'Thank you for contacting us. Your message has been received successfully. Our team will review it and respond shortly.';
+    private const CONTACT_FLASH_SUCCESS = 'Thank you for contacting Smart Waste Management. Your message has been received successfully. Our team will get back to you as soon as possible.';
 
     public function about(): void
     {
@@ -27,8 +26,7 @@ class PageController extends Controller
     {
         $company = companyInfo();
         $images = corporatePageImages();
-        $showContactSuccess = isset($_GET['sent']);
-        $this->view('pages/contact', compact('company', 'images', 'showContactSuccess'), 'main');
+        $this->view('pages/contact', compact('company', 'images'), 'main');
     }
 
     public function contactPost(): void
@@ -42,28 +40,28 @@ class PageController extends Controller
         $message = mb_substr(strip_tags(trim($_POST['message'] ?? '')), 0, 5000);
 
         if ($name === '' || $email === '' || $subject === '' || $message === '') {
-            $this->contactSubmissionError('Please fill in all required fields.');
-            return;
+            setFlash('error', 'Please fill in all required fields.');
+            redirect('contact');
         }
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->contactSubmissionError('Please enter a valid email address.');
-            return;
+            setFlash('error', 'Please enter a valid email address.');
+            redirect('contact');
         }
 
         if (!ContactMessageModel::tableExists()) {
-            $this->contactSubmissionError('Contact messaging is temporarily unavailable. Please try again later or call our support line.');
-            return;
+            setFlash('error', 'Contact messaging is temporarily unavailable. Please try again later or call our support line.');
+            redirect('contact');
         }
 
         $submission = Csrf::validateSubmission('contact', trim($_POST['submission_token'] ?? ''));
         if ($submission === 'duplicate') {
-            $this->finishContactSuccess(null, true);
-            return;
+            setFlash('success', self::CONTACT_FLASH_SUCCESS);
+            redirect('contact');
         }
         if ($submission === 'invalid') {
-            $this->contactSubmissionError('Your session expired. Please refresh the page and try again.');
-            return;
+            setFlash('error', 'Your session expired. Please refresh the page and try again.');
+            redirect('contact');
         }
 
         $messageId = ContactMessageModel::create([
@@ -77,78 +75,27 @@ class PageController extends Controller
 
         $saved = ContactMessageModel::find($messageId);
         if (!$saved) {
-            $this->contactSubmissionError('We couldn\'t send your message right now. Please try again.');
-            return;
+            setFlash('error', 'We couldn\'t send your message right now. Please try again.');
+            redirect('contact');
         }
 
-        $this->finishContactSuccess($saved, false);
-    }
+        // Public Contact Us: recipient is always contact_messages.email (visitor — not a registered user).
+        $customerConfirmSent = Mailer::sendContactCustomerConfirmation($saved);
+        $adminNotifySent = Mailer::sendContactAdminNotification($saved);
 
-    private function contactSubmissionError(string $message): void
-    {
-        if (isAjax()) {
-            jsonResponse(['success' => false, 'message' => $message], 422);
+        if (!$customerConfirmSent) {
+            error_log('[SmartWaste] Contact customer confirmation failed for message #' . $messageId);
+        }
+        if (!$adminNotifySent) {
+            error_log('[SmartWaste] Contact admin notification failed for message #' . $messageId);
         }
 
-        setFlash('error', $message);
+        if ($customerConfirmSent) {
+            setFlash('success', self::CONTACT_FLASH_SUCCESS . ' A confirmation has been sent to your email.');
+        } else {
+            setFlash('success', self::CONTACT_FLASH_SUCCESS . ' We could not send a confirmation email right now; our team still received your message.');
+        }
         redirect('contact');
-    }
-
-    private function finishContactSuccess(?array $saved, bool $duplicate): void
-    {
-        $redirectUrl = baseUrl('contact') . '&sent=1';
-
-        if (isAjax()) {
-            $payload = [
-                'success'  => true,
-                'title'    => self::CONTACT_SUCCESS_TITLE,
-                'message'  => self::CONTACT_SUCCESS_MESSAGE,
-                'redirect' => $redirectUrl,
-                'duplicate'=> $duplicate,
-            ];
-
-            http_response_code(200);
-            header('Content-Type: application/json; charset=UTF-8');
-            echo json_encode($payload, JSON_UNESCAPED_UNICODE);
-            $this->flushResponseAndSendContactEmails($saved);
-
-            return;
-        }
-
-        setFlashStructured('success', self::CONTACT_SUCCESS_TITLE, self::CONTACT_SUCCESS_MESSAGE);
-        header('Location: ' . $redirectUrl);
-        $this->flushResponseAndSendContactEmails($saved);
-    }
-
-    private function flushResponseAndSendContactEmails(?array $saved): void
-    {
-        if (function_exists('fastcgi_finish_request')) {
-            session_write_close();
-            fastcgi_finish_request();
-        } elseif (function_exists('session_write_close')) {
-            session_write_close();
-        }
-
-        if ($saved) {
-            $this->sendContactEmails($saved);
-        }
-
-        exit;
-    }
-
-    private function sendContactEmails(array $saved): void
-    {
-        try {
-            Mailer::sendContactCustomerConfirmation($saved);
-        } catch (Throwable $e) {
-            error_log('[SmartWaste] Contact customer confirmation failed: ' . $e->getMessage());
-        }
-
-        try {
-            Mailer::sendContactAdminNotification($saved);
-        } catch (Throwable $e) {
-            error_log('[SmartWaste] Contact admin notification failed: ' . $e->getMessage());
-        }
     }
 
     public function privacy(): void

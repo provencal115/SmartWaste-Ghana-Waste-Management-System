@@ -136,8 +136,9 @@ uiPageHeader(
 <div class="modal fade" id="replyMessageModal" tabindex="-1" aria-labelledby="replyMessageModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content glass-card border-0">
-            <form method="post" action="<?= baseUrl('admin/messages') ?>">
+            <form method="post" action="<?= baseUrl('admin/messages') ?>" id="replyMessageForm">
                 <?= Csrf::field() ?>
+                <?= Csrf::submissionField('admin_contact_reply') ?>
                 <input type="hidden" name="action" value="reply">
                 <input type="hidden" name="message_id" id="replyMessageId" value="">
                 <div class="modal-header border-0 pb-0">
@@ -164,7 +165,7 @@ uiPageHeader(
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn-saas btn-saas-ghost" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn-saas btn-saas-primary"><i class="fa-solid fa-paper-plane"></i> Send Reply</button>
+                    <button type="submit" class="btn-saas btn-saas-primary" id="replySubmitBtn"><i class="fa-solid fa-paper-plane"></i> Send Reply</button>
                 </div>
             </form>
         </div>
@@ -180,6 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const replyToEmail = document.getElementById('replyToEmail');
     const replySubject = document.getElementById('replySubject');
     const replyBody = document.getElementById('replyBody');
+    const replyForm = document.getElementById('replyMessageForm');
+    const replySubmitBtn = document.getElementById('replySubmitBtn');
     const viewModalReplyBtn = document.getElementById('viewModalReplyBtn');
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
     const bulkDeleteForm = document.getElementById('bulkDeleteForm');
@@ -292,6 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const count = document.querySelectorAll('.message-select:checked').length;
         if (!count) return;
         confirmDelete(`Delete ${count} selected message(s)? This cannot be undone.`, () => bulkDeleteForm.submit());
+    });
+
+    replyForm?.addEventListener('submit', () => {
+        if (replySubmitBtn) {
+            replySubmitBtn.disabled = true;
+            replySubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+        }
     });
 });
 </script>

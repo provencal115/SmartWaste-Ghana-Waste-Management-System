@@ -27,22 +27,7 @@
     <script src="<?= asset('js/password-field.js') ?>"></script>
     <script src="<?= asset('js/main.js') ?>"></script>
     <?php if ($flash): ?>
-    <script>
-    Swal.fire({
-        icon: '<?= $flash['type'] === 'error' ? 'error' : 'success' ?>',
-        <?php if (!empty($flash['title'])): ?>
-        title: <?= json_encode($flash['title'], JSON_UNESCAPED_UNICODE) ?>,
-        text: <?= json_encode($flash['message'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
-        <?php else: ?>
-        title: <?= json_encode($flash['message'], JSON_UNESCAPED_UNICODE) ?>,
-        <?php endif; ?>
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 4500,
-        timerProgressBar: true
-    });
-    </script>
+    <script>Swal.fire({ icon: <?= json_encode(match ($flash['type'] ?? 'success') { 'error' => 'error', 'warning' => 'warning', default => 'success' }) ?>, title: <?= json_encode(!empty($flash['title']) ? $flash['title'] : ($flash['message'] ?? ''), JSON_UNESCAPED_UNICODE) ?>, <?php if (!empty($flash['title'])): ?>text: <?= json_encode($flash['message'] ?? '', JSON_UNESCAPED_UNICODE) ?>, <?php endif; ?>toast: true, position: 'top-end', showConfirmButton: false, timer: 4500, timerProgressBar: true });</script>
     <?php endif; ?>
     <?php require __DIR__ . '/../partials/chatbot.php'; ?>
 </body>

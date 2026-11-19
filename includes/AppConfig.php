@@ -34,9 +34,15 @@ function detectAppBaseUrl(): string
     }
 
     $scheme = isHttpsRequest() ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost');
+    $host = preg_replace('/[^a-zA-Z0-9.\-:\[\]]/', '', $host) ?: 'localhost';
 
     $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
+    // Never use CLI/script runners as the web root (e.g. .../scripts/test.php → .../index.php)
+    if (preg_match('#/scripts/[^/]+\.php$#i', $script)) {
+        $script = preg_replace('#/scripts/[^/]+\.php$#', '/index.php', $script);
+    }
+
     $basePath = dirname($script);
     if ($basePath === '/' || $basePath === '\\' || $basePath === '.') {
         $basePath = '';

@@ -11,6 +11,13 @@ class Mailer
     /** @var array<string, mixed>|null */
     private static ?array $config = null;
 
+    private static ?string $lastSmtpError = null;
+
+    public static function lastSmtpError(): ?string
+    {
+        return self::$lastSmtpError;
+    }
+
     /** @return array<string, mixed> */
     private static function config(): array
     {
@@ -165,7 +172,7 @@ class Mailer
         }
     }
 
-    /** Send confirmation email to the customer after Contact Us form submission. */
+    /** Send automatic confirmation to the visitor email on contact_messages (public form; no login). */
     public static function sendContactCustomerConfirmation(array $message): bool
     {
         $config = self::config();
@@ -180,46 +187,40 @@ class Mailer
             return false;
         }
 
-        $mail = self::createSmtpMailer();
-        if (!$mail) {
-            self::logMailError('contact_customer_confirm_skipped', 'SMTP credentials not configured.', ['message_id' => $message['id'] ?? null]);
-            return false;
-        }
-
         $customerName = trim($message['full_name'] ?? '') ?: 'Valued Customer';
         $company = $config['company'];
 
-        try {
-            $mail->addAddress($email, $customerName);
-            $mail->addReplyTo($config['from_email'], $config['from_name']);
-            $mail->isHTML(true);
-            $mail->Subject = $config['contact']['customer_confirm_subject']
-                ?? "We've Received Your Message – Smart Waste Management Ghana";
+        $sent = self::deliverSmtp(
+            function (PHPMailer $mail) use ($config, $email, $customerName, $message, $company) {
+                $mail->addAddress($email, $customerName);
+                $mail->addReplyTo($config['from_email'], $config['from_name']);
+                $mail->isHTML(true);
+                $mail->Subject = $config['contact']['customer_confirm_subject']
+                    ?? 'We Have Received Your Message – Smart Waste Management Ghana';
 
-            $logoPath = siteLogoAbsolutePath();
-            $hasLogo  = $logoPath !== null && is_file($logoPath);
-            if ($hasLogo) {
-                $mail->addEmbeddedImage($logoPath, 'company_logo', basename($logoPath));
-            }
+                $logoPath = siteLogoAbsolutePath();
+                if ($logoPath !== null && is_file($logoPath)) {
+                    $mail->addEmbeddedImage($logoPath, 'company_logo', basename($logoPath));
+                }
 
-            ob_start();
-            require __DIR__ . '/../views/emails/contact_confirmation.php';
-            $mail->Body = (string) ob_get_clean();
-            $mail->AltBody = self::contactConfirmationPlainText($customerName, $message, $company);
+                ob_start();
+                require __DIR__ . '/../views/emails/contact_confirmation.php';
+                $mail->Body = (string) ob_get_clean();
+                $mail->AltBody = self::contactConfirmationPlainText($customerName, $message, $company);
+            },
+            'contact_customer_confirm_failed',
+            ['message_id' => $message['id'] ?? null, 'email' => $email]
+        );
 
-            $mail->send();
-            logActivity(null, 'contact_customer_confirm_sent', 'mail', [
-                'message_id' => $message['id'] ?? null,
-                'email'      => $email,
-            ]);
-            return true;
-        } catch (Throwable $e) {
-            self::logMailError('contact_customer_confirm_failed', $e->getMessage(), [
-                'message_id' => $message['id'] ?? null,
-                'email'      => $email,
-            ]);
+        if (!$sent) {
             return false;
         }
+
+        logActivity(null, 'contact_customer_confirm_sent', 'mail', [
+            'message_id' => $message['id'] ?? null,
+            'email'      => $email,
+        ]);
+        return true;
     }
 
     /** Notify administrator of a new contact form submission. */
@@ -235,41 +236,48 @@ class Mailer
             return false;
         }
 
-        $mail = self::createSmtpMailer();
-        if (!$mail) {
-            return false;
+        $messageId = (int) ($message['id'] ?? 0);
+        $viewUrl = $messageId > 0
+            ? baseUrl('admin/messages') . '&id=' . $messageId
+            : baseUrl('admin/messages');
+
+        $sent = self::deliverSmtp(
+            function (PHPMailer $mail) use ($config, $adminEmail, $message, $viewUrl) {
+                $mail->addAddress($adminEmail, 'Administrator');
+                $mail->isHTML(true);
+                $mail->Subject = $config['contact']['admin_notify_subject'] ?? 'New Contact Message';
+                $company = $config['company'];
+
+                ob_start();
+                require __DIR__ . '/../views/emails/contact_admin.php';
+                $mail->Body = (string) ob_get_clean();
+                $mail->AltBody = sprintf(
+                    "New contact message #%d\nFrom: %s <%s>\nPhone: %s\nSubject: %s\n\n%s\n\nView: %s",
+                    (int) ($message['id'] ?? 0),
+                    $message['full_name'] ?? '',
+                    $message['email'] ?? '',
+                    $message['phone'] ?? '—',
+                    $message['subject'] ?? '',
+                    $message['message'] ?? '',
+                    $viewUrl
+                );
+            },
+            'contact_admin_notify_failed',
+            ['message_id' => $messageId]
+        );
+
+        if ($sent) {
+            logActivity(null, 'contact_admin_notify_sent', 'mail', ['message_id' => $messageId]);
         }
 
-        try {
-            $mail->addAddress($adminEmail, 'Administrator');
-            $mail->isHTML(true);
-            $mail->Subject = $config['contact']['admin_notify_subject'] ?? 'New Contact Message';
-            $company = $config['company'];
-            $viewUrl = baseUrl('admin/messages');
-
-            ob_start();
-            require __DIR__ . '/../views/emails/contact_admin.php';
-            $mail->Body = (string) ob_get_clean();
-            $mail->AltBody = sprintf(
-                "New contact message #%d\nFrom: %s <%s>\nSubject: %s\n\n%s\n\nView: %s",
-                (int) ($message['id'] ?? 0),
-                $message['full_name'] ?? '',
-                $message['email'] ?? '',
-                $message['subject'] ?? '',
-                $message['message'] ?? '',
-                $viewUrl
-            );
-
-            $mail->send();
-            logActivity(null, 'contact_admin_notify_sent', 'mail', ['message_id' => $message['id'] ?? null]);
-            return true;
-        } catch (Throwable $e) {
-            self::logMailError('contact_admin_notify_failed', $e->getMessage(), ['message_id' => $message['id'] ?? null]);
-            return false;
-        }
+        return $sent;
     }
 
-    /** Send a reply to the customer who submitted a contact message. */
+    /**
+     * Admin reply to the visitor email on contact_messages (public form — no user account).
+     *
+     * @param array<string, mixed> $message contact_messages row; optional replies[] for thread history
+     */
     public static function sendContactReply(array $message, string $replyBody, string $adminName): bool
     {
         $config = self::config();
@@ -279,38 +287,109 @@ class Mailer
 
         $email = trim($message['email'] ?? '');
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            self::logMailError('contact_reply_skipped', 'Invalid visitor email on contact message.', [
+                'message_id' => $message['id'] ?? null,
+            ]);
             return false;
         }
 
-        $mail = self::createSmtpMailer();
-        if (!$mail) {
-            return false;
+        $customerName = trim($message['full_name'] ?? '') ?: 'Customer';
+        $previousReplies = is_array($message['replies'] ?? null) ? $message['replies'] : [];
+
+        $subjectLine = trim((string) ($message['subject'] ?? ''));
+        if ($subjectLine === '') {
+            $subjectLine = 'Your enquiry';
         }
+        $prefix = $config['contact']['reply_subject_prefix'] ?? 'Re: ';
+        $suffix = $config['contact']['reply_subject_suffix'] ?? ' – Smart Waste Management Ghana';
+        $replySubject = $prefix . $subjectLine . $suffix;
 
-        try {
-            $mail->addAddress($email, $message['full_name'] ?? '');
-            $mail->addReplyTo($config['from_email'], $config['from_name']);
-            $mail->isHTML(true);
-            $prefix = $config['contact']['reply_subject_prefix'] ?? 'Re: ';
-            $mail->Subject = $prefix . ($message['subject'] ?? 'Your enquiry');
-            $company = $config['company'];
-            $customerName = $message['full_name'] ?? 'Customer';
+        $sent = self::deliverSmtp(
+            function (PHPMailer $mail) use ($config, $email, $message, $replyBody, $adminName, $customerName, $previousReplies, $replySubject) {
+                $mail->addAddress($email, $customerName);
+                $mail->addReplyTo($config['from_email'], $config['from_name']);
+                $mail->isHTML(true);
+                $mail->Subject = $replySubject;
+                $company = $config['company'];
 
-            ob_start();
-            require __DIR__ . '/../views/emails/contact_reply.php';
-            $mail->Body = (string) ob_get_clean();
-            $mail->AltBody = "Dear {$customerName},\n\n{$replyBody}\n\nKind regards,\n{$adminName}\n{$company['name']}";
+                $logoPath = siteLogoAbsolutePath();
+                $hasLogo = $logoPath !== null && is_file($logoPath);
+                if ($hasLogo) {
+                    $mail->addEmbeddedImage($logoPath, 'company_logo', basename($logoPath));
+                }
 
-            $mail->send();
+                ob_start();
+                require __DIR__ . '/../views/emails/contact_reply.php';
+                $mail->Body = (string) ob_get_clean();
+                $mail->AltBody = self::contactReplyPlainText($customerName, $replyBody, $message, $previousReplies, $company);
+            },
+            'contact_reply_failed',
+            ['message_id' => $message['id'] ?? null, 'email' => $email]
+        );
+
+        if ($sent) {
             logActivity(null, 'contact_reply_sent', 'mail', ['message_id' => $message['id'] ?? null, 'email' => $email]);
-            return true;
-        } catch (Throwable $e) {
-            self::logMailError('contact_reply_failed', $e->getMessage(), ['message_id' => $message['id'] ?? null]);
-            return false;
         }
+
+        return $sent;
     }
 
-    private static function createSmtpMailer(): ?PHPMailer
+    /** @return list<array{port: int, encryption: string}> */
+    private static function smtpProfiles(): array
+    {
+        $smtp = self::config()['smtp'] ?? [];
+        $profiles = [[
+            'port'       => (int) ($smtp['port'] ?? 587),
+            'encryption' => strtolower((string) ($smtp['encryption'] ?? 'tls')),
+        ]];
+        if (!empty($smtp['alternate']) && is_array($smtp['alternate'])) {
+            $profiles[] = [
+                'port'       => (int) ($smtp['alternate']['port'] ?? 465),
+                'encryption' => strtolower((string) ($smtp['alternate']['encryption'] ?? 'ssl')),
+            ];
+        }
+
+        return $profiles;
+    }
+
+    /**
+     * @param callable(PHPMailer): void $configure
+     * @param array<string, mixed> $logContext
+     */
+    private static function deliverSmtp(callable $configure, string $failAction, array $logContext): bool
+    {
+        self::$lastSmtpError = null;
+        $lastError = null;
+        foreach (self::smtpProfiles() as $index => $profile) {
+            $mail = self::createSmtpMailer($profile);
+            if (!$mail) {
+                self::$lastSmtpError = 'SMTP credentials are not configured.';
+                self::logMailError($failAction, self::$lastSmtpError, $logContext);
+                return false;
+            }
+
+            try {
+                $configure($mail);
+                $mail->send();
+                if ($index > 0) {
+                    error_log('[SmartWaste Mail] Sent using alternate SMTP port ' . $profile['port']);
+                }
+                return true;
+            } catch (Throwable $e) {
+                $lastError = $e;
+            }
+        }
+
+        if ($lastError) {
+            self::$lastSmtpError = $lastError->getMessage();
+            self::logMailError($failAction, self::$lastSmtpError, $logContext);
+        }
+
+        return false;
+    }
+
+    /** @param array{port: int, encryption: string}|null $profile */
+    private static function createSmtpMailer(?array $profile = null): ?PHPMailer
     {
         $config = self::config();
         $smtpUser = trim($config['smtp']['username'] ?? '');
@@ -319,17 +398,37 @@ class Mailer
             return null;
         }
 
+        $encryption = strtolower((string) ($config['smtp']['encryption'] ?? 'tls'));
+        $port = (int) ($config['smtp']['port'] ?? 587);
+        if ($profile) {
+            $port = (int) $profile['port'];
+            $encryption = strtolower((string) $profile['encryption']);
+        }
+
+        if ($encryption === 'ssl' || $port === 465) {
+            $secure = PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $secure = PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
         $mail = new PHPMailer(true);
         $mail->isSMTP();
-        $mail->Host       = $config['smtp']['host'];
-        $mail->Port       = (int) $config['smtp']['port'];
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $smtpUser;
-        $mail->Password   = $smtpPass;
-        $mail->SMTPSecure = ($config['smtp']['encryption'] ?? 'tls') === 'ssl'
-            ? PHPMailer::ENCRYPTION_SMTPS
-            : PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->CharSet    = 'UTF-8';
+        $mail->Host         = $config['smtp']['host'] ?? 'smtp.gmail.com';
+        $mail->Port         = $port;
+        $mail->SMTPAuth     = true;
+        $mail->SMTPAutoTLS  = true;
+        $mail->Username     = $smtpUser;
+        $mail->Password     = str_replace(' ', '', (string) $smtpPass);
+        $mail->SMTPSecure   = $secure;
+        $mail->Timeout      = 30;
+        $mail->SMTPOptions  = [
+            'ssl' => [
+                'verify_peer'       => true,
+                'verify_peer_name'  => true,
+                'allow_self_signed' => false,
+            ],
+        ];
+        $mail->CharSet      = 'UTF-8';
         $mail->setFrom($config['from_email'], $config['from_name']);
 
         return $mail;
@@ -339,32 +438,71 @@ class Mailer
     /** @param array<string, string> $company */
     private static function contactConfirmationPlainText(string $customerName, array $message, array $company): string
     {
-        $subject = $message['subject'] ?? '';
-        $subjectLine = $subject !== '' ? " regarding \"{$subject}\"" : '';
-        $phones = $company['phone'] ?? '';
-        if (!empty($company['phone_alt'])) {
-            $phones .= ' | ' . $company['phone_alt'];
-        }
+        $subject = trim((string) ($message['subject'] ?? ''));
+        $regarding = $subject !== '' ? " regarding {$subject}" : '';
 
         return <<<TEXT
 Dear {$customerName},
 
 Thank you for contacting Smart Waste Management Ghana.
 
-We have successfully received your message and appreciate you taking the time to get in touch with us.
+We have successfully received your message{$regarding}.
 
-Our support team is currently reviewing your enquiry{$subjectLine} and will respond as soon as possible.
+Our team will review your enquiry and get back to you as soon as possible.
 
-If your request is urgent, please contact us using the phone numbers below.
+We appreciate your interest in Smart Waste Management Ghana.
 
-Thank you for choosing Smart Waste Management Ghana.
-
-Kind regards,
-{$company['name']}
-
-{$phones}
-{$company['email']}
+Best regards,
+Smart Waste Management Ghana
 TEXT;
+    }
+
+    /**
+     * @param array<string, mixed> $message
+     * @param array<int, array<string, mixed>> $previousReplies
+     * @param array<string, string> $company
+     */
+    private static function contactReplyPlainText(
+        string $customerName,
+        string $replyBody,
+        array $message,
+        array $previousReplies,
+        array $company
+    ): string {
+        $lines = [
+            "Dear {$customerName},",
+            '',
+            'Thank you for contacting Smart Waste Management Ghana.',
+            '',
+            $replyBody,
+            '',
+            'If you have any further questions, please feel free to contact us.',
+            '',
+        ];
+
+        $origSubject = trim((string) ($message['subject'] ?? ''));
+        $origBody = trim((string) ($message['message'] ?? ''));
+        if ($origSubject !== '' || $origBody !== '') {
+            $lines[] = '--- Your original message ---';
+            if ($origSubject !== '') {
+                $lines[] = "Subject: {$origSubject}";
+            }
+            if ($origBody !== '') {
+                $lines[] = $origBody;
+            }
+            $lines[] = '';
+        }
+
+        foreach ($previousReplies as $prev) {
+            $lines[] = '--- Earlier reply ---';
+            $lines[] = (string) ($prev['reply_body'] ?? '');
+            $lines[] = '';
+        }
+
+        $lines[] = 'Best regards,';
+        $lines[] = $company['name'] ?? 'Smart Waste Management Ghana';
+
+        return implode("\n", $lines);
     }
 
     /** @param array<string, string> $company */

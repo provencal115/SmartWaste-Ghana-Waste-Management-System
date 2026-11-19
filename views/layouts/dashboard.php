@@ -37,7 +37,7 @@
 <?php if ($flash): ?>
 <script>
 Swal.fire({
-    icon: '<?= $flash['type'] === 'error' ? 'error' : 'success' ?>',
+    icon: <?= json_encode(match ($flash['type'] ?? 'success') { 'error' => 'error', 'warning' => 'warning', default => 'success' }) ?>,
     title: <?= json_encode($flash['message'], JSON_UNESCAPED_UNICODE) ?>,
     toast: true, position: 'top-end', showConfirmButton: false, timer: 3500, timerProgressBar: true
 });

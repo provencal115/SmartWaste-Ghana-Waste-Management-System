@@ -180,4 +180,164 @@ warning: in the working copy of 'views/partials/topbar.php', LF will be replaced
 [32m+[m
 [32m+[m[32m    $finfo = finfo_open(FILEINFO_MIME_TYPE);[m
 [32m+[m[32m    $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : false;[m
-[32m+[m
+[32m+[mwarning: in the working copy of 'assets/css/pages.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'controllers/PageController.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Csrf.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/helpers.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'views/layouts/main.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'views/pages/contact.php', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/assets/css/pages.css b/assets/css/pages.css[m
+[1mindex 742cc99..8de392f 100644[m
+[1m--- a/assets/css/pages.css[m
+[1m+++ b/assets/css/pages.css[m
+[36m@@ -319,3 +319,33 @@[m
+     padding: 2.5rem 0 3rem;[m
+   }[m
+ }[m
+[32m+[m
+[32m+[m[32m/* Contact form — submit states & success banner */[m
+[32m+[m[32m.btn-saas.is-sending {[m
+[32m+[m[32m  opacity: 0.92;[m
+[32m+[m[32m  pointer-events: none;[m
+[32m+[m[32m  cursor: wait;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m.btn-saas.is-sent {[m
+[32m+[m[32m  background: var(--color-success, #10b981) !important;[m
+[32m+[m[32m  border-color: var(--color-success, #10b981) !important;[m
+[32m+[m[32m  pointer-events: none;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m.contact-success-banner {[m
+[32m+[m[32m  display: flex;[m
+[32m+[m[32m  align-items: flex-start;[m
+[32m+[m[32m  gap: 0.875rem;[m
+[32m+[m[32m  padding: 1rem 1.125rem;[m
+[32m+[m[32m  border-radius: var(--radius-lg, 12px);[m
+[32m+[m[32m  background: color-mix(in srgb, var(--color-success, #10b981) 12%, var(--bg-surface));[m
+[32m+[m[32m  border: 1px solid color-mix(in srgb, var(--color-success, #10b981) 28%, transparent);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m.contact-success-icon {[m
+[32m+[m[32m  color: var(--color-success, #10b981);[m
+[32m+[m[32m  font-size: 1.35rem;[m
+[32m+[m[32m  line-height: 1;[m
+[32m+[m[32m  margin-top: 0.1rem;[m
+[32m+[m[32m}[m
+[1mdiff --git a/controllers/PageController.php b/controllers/PageController.php[m
+[1mindex a26ef39..f775d92 100644[m
+[1m--- a/controllers/PageController.php[m
+[1m+++ b/controllers/PageController.php[m
+[36m@@ -4,6 +4,9 @@[m [mrequire_once __DIR__ . '/../includes/pages.php';[m
+ [m
+ class PageController extends Controller[m
+ {[m
+[32m+[m[32m    private const CONTACT_SUCCESS_TITLE = 'Message sent successfully!';[m
+[32m+[m[32m    private const CONTACT_SUCCESS_MESSAGE = 'Thank you for contacting us. Your message has been received successfully. Our team will review it and respond shortly.';[m
+[32m+[m
+     public function about(): void[m
+     {[m
+         $company = companyInfo();[m
+[36m@@ -24,7 +27,8 @@[m [mclass PageController extends Controller[m
+     {[m
+         $company = companyInfo();[m
+         $images = corporatePageImages();[m
+[31m-        $this->view('pages/contact', compact('company', 'images'), 'main');[m
+[32m+[m[32m        $showContactSuccess = isset($_GET['sent']);[m
+[32m+[m[32m        $this->view('pages/contact', compact('company', 'images', 'showContactSuccess'), 'main');[m
+     }[m
+ [m
+     public function contactPost(): void[m
+[36m@@ -38,18 +42,28 @@[m [mclass PageController extends Controller[m
+         $message = mb_substr(strip_tags(trim($_POST['message'] ?? '')), 0, 5000);[m
+ [m
+         if ($name === '' || $email === '' || $subject === '' || $message === '') {[m
+[31m-            setFlash('error', 'Please fill in all required fields.');[m
+[31m-            redirect('contact');[m
+[32m+[m[32m            $this->contactSubmissionError('Please fill in all required fields.');[m
+[32m+[m[32m            return;[m
+         }[m
+ [m
+         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {[m
+[31m-            setFlash('error', 'Please enter a valid email address.');[m
+[31m-            redirect('contact');[m
+[32m+[m[32m            $this->contactSubmissionError('Please enter a valid email address.');[m
+[32m+[m[32m            return;[m
+         }[m
+ [m
+         if (!ContactMessageModel::tableExists()) {[m
+[31m-            setFlash('error', 'Contact messaging is temporarily unavailable. Please try again later or call our support line.');[m
+[31m-            redirect('contact');[m
+[32m+[m[32m            $this->contactSubmissionError('Contact messaging is temporarily unavailable. Please try again later or call our support line.');[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        $submission = Csrf::validateSubmission('contact', trim($_POST['submission_token'] ?? ''));[m
+[32m+[m[32m        if ($submission === 'duplicate') {[m
+[32m+[m[32m            $this->finishContactSuccess(null, true);[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m[32m        if ($submission === 'invalid') {[m
+[32m+[m[32m            $this->contactSubmissionError('Your session expired. Please refresh the page and try again.');[m
+[32m+[m[32m            return;[m
+         }[m
+ [m
+         $messageId = ContactMessageModel::create([[m
+[36m@@ -62,23 +76,81 @@[m [mclass PageController extends Controller[m
+         ]);[m
+ [m
+         $saved = ContactMessageModel::find($messageId);[m
+[31m-        if ($saved) {[m
+[31m-            try {[m
+[31m-                Mailer::sendContactCustomerConfirmation($saved);[m
+[31m-            } catch (Throwable $e) {[m
+[31m-                error_log('[SmartWaste] Contact customer confirmation failed: ' . $e->getMessage());[m
+[31m-            }[m
+[31m-            try {[m
+[31m-                Mailer::sendContactAdminNotification($saved);[m
+[31m-            } catch (Throwable $e) {[m
+[31m-                error_log('[SmartWaste] Contact admin notification failed: ' . $e->getMessage());[m
+[31m-            }[m
+[32m+[m[32m        if (!$saved) {[m
+[32m+[m[32m            $this->contactSubmissionError('We couldn\'t send your message right now. Please try again.');[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        $this->finishContactSuccess($saved, false);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    private function contactSubmissionError(string $message): void[m
+[32m+[m[32m    {[m
+[32m+[m[32m        if (isAjax()) {[m
+[32m+[m[32m            jsonResponse(['success' => false, 'message' => $message], 422);[m
+         }[m
+ [m
+[31m-        setFlash('success', 'Thank you for contacting Smart Waste Management. Your message has been received successfully. Our team will get back to you as soon as possible.');[m
+[32m+[m[32m        setFlash('error', $message);[m
+         redirect('contact');[m
+     }[m
+ [m
+[32m+[m[32m    private function finishContactSuccess(?array $saved, bool $duplicate): void[m
+[32m+[m[32m    {[m
+[32m+[m[32m        $redirectUrl = baseUrl('contact') . '&sent=1';[m
+[32m+[m
+[32m+[m[32m        if (isAjax()) {[m
+[32m+[m[32m            $payload = [[m
+[32m+[m[32m                'success'  => true,[m
+[32m+[m[32m                'title'    => self::CONTACT_SUCCESS_TITLE,[m
+[32m+[m[32m                'message'  => self::CONTACT_SUCCESS_MESSAGE,[m
+[32m+[m[32m                'redirect' => $redirectUrl,[m
+[32m+[m[32m                'duplicate'=> $duplicate,[m
+[32m+[m[32m            ];[m
+[32m+[m
+[32m+[m[32m            http_response_code(200);[m
+[32m+[m[32m            header('Content-Type: application/json; charset=UTF-8');[m
+[32m+[m[32m            echo json_encode($payload, JSON_UNESCAPED_UNICODE);[m
+[32m+[m[32m            $this->flushResponseAndSendContactEmails($saved);[m
+[32m+[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        setFlashStructured('success', self::CONTACT_SUCCESS_TITLE, self::CONTACT_SUCCESS_MESSAGE);[m
+[32m+[m[32m        header('Location: ' . $redirectUrl);[m
+[32m+[m[32m        $this->flushRes
